@@ -1,0 +1,17 @@
+{
+  "name": "Food & Nutrition AI",
+  "short_name": "Food AI",
+  "description": "Consulta alimentos y síntomas nutricionales con datos reales de USDA y Open Food Facts, explicados por IA. Sin backend, sin cuentas.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "id": "food-nutrition-ai-pwa",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0b1210",
+  "theme_color": "#12312a",
+  "lang": "es",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}
