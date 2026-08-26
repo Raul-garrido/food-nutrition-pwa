@@ -38,3 +38,28 @@ propio, sin base de datos propia; claves de API introducidas por el
 usuario y guardadas en IndexedDB (opcional, con opción de borrado). Ver
 `README.md` para detalles, limitaciones conocidas y cómo obtener cada
 clave de API.
+
+## Flujo de trabajo local (sesiones con acceso al disco del usuario)
+
+Este proyecto se trabaja principalmente en local (app de escritorio de
+Claude Code sobre la carpeta clonada en el PC del usuario), no vía GitHub
+en cada cambio:
+
+- Edita `index.html` directamente en el sitio.
+- Cada ~5 actualizaciones (o cuando el usuario lo pida), guarda una copia
+  de seguridad en `versiones/`, con el nombre
+  `vN_descripcion-breve_YYYY-MM-DD.html` (mira los archivos ya presentes
+  en esa carpeta para seguir la numeración y el estilo).
+- No hagas commit ni push a GitHub por tu cuenta en cada cambio: solo
+  cuando el usuario lo pida explícitamente (por ejemplo, al cerrar una
+  sesión de trabajo o alcanzar un hito). El resto del tiempo, el trabajo
+  vive solo en local.
+- El usuario puede abrir `index.html` directamente desde el explorador de
+  archivos o con `./serve.ps1` (necesario si se quiere probar el Service
+  Worker o el manifest de instalación); ambas formas deben seguir
+  funcionando.
+
+Una sesión remota (sin acceso al disco del usuario, por ejemplo Claude Code
+on the web) no puede seguir este flujo tal cual: en ese caso, trabaja sobre
+el repositorio de GitHub como de costumbre y dilo explícitamente si el
+usuario pide algo que requiera acceso a su disco local.
