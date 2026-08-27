@@ -627,6 +627,20 @@ const AI = {
     if (m) { try { return JSON.parse(m[0]); } catch {} }
     return null;
   },
+  // Una sola llamada para traducir varios títulos de receta de golpe
+  async translateMealTitles(titles) {
+    if (!titles.length) return {};
+    const geminiKey = await Credentials.get("gemini");
+    const provider = geminiKey ? "gemini" : (await Credentials.get("claude")) ? "claude" : null;
+    if (!provider) return {};
+    const prompt = "Traduce estos títulos de recetas de cocina al español de forma natural y breve. Devuelve " +
+      "SOLO un JSON de la forma {\"título original\": \"traducción\", ...} con una entrada por cada título de " +
+      "esta lista: " + JSON.stringify(titles);
+    const res = await this.ask(prompt, { provider, json: true });
+    if (!res.ok) return {};
+    const parsed = this.parseJsonLoose(res.text);
+    return (parsed && typeof parsed === "object") ? parsed : {};
+  },
   // Una sola llamada para traducir varios nombres de golpe (en vez de una por candidato)
   async translateFoodNames(names) {
     if (!names.length) return {};
@@ -684,15 +698,30 @@ const SYMPTOM_MAP = [
   { id: "immune", kws: [/defensas bajas/i, /sistema inmune/i, /inmunidad/i], terms: ["citrus","yogurt","garlic","spinach"], label: "sistema inmune" },
 ];
 
+// Traducción fija de los términos usados por SYMPTOM_MAP (vocabulario cerrado,
+// sin necesidad de IA); para searchTerms generados por IA se pide la traducción
+// en la misma llamada (ver interpret()).
+const EN_ES_TERMS = {
+  ginger: "jengibre", papaya: "papaya", yogurt: "yogur", oats: "avena", fennel: "hinojo",
+  rice: "arroz", banana: "plátano", almonds: "almendras", spinach: "espinacas",
+  watermelon: "sandía", cucumber: "pepino", "coconut water": "agua de coco", citrus: "cítricos",
+  honey: "miel", garlic: "ajo", kiwi: "kiwi", chamomile: "manzanilla", water: "agua",
+  eggs: "huevos", salmon: "salmón", cherries: "cerezas", fruit: "fruta", vegetable: "verdura",
+  "whole grain": "cereal integral",
+};
+
 const QueryInterpreter = {
   localInterpret(text) {
     const matched = SYMPTOM_MAP.filter(m => m.kws.some(re => re.test(text)));
     const chosen = matched.length ? matched : [{ id: "general_healthy", terms: ["fruit","vegetable","whole grain"], label: "alimentación general" }];
     const terms = [...new Set(chosen.flatMap(m => m.terms))];
+    const termLabels = {};
+    terms.forEach(t => { termLabels[t] = EN_ES_TERMS[t] || t; });
     return {
       source: "local",
       categories: chosen.map(m => m.label),
       searchTerms: terms,
+      termLabels,
       language: "es",
     };
   },
@@ -700,15 +729,21 @@ const QueryInterpreter = {
     const geminiKey = await Credentials.get("gemini");
     if (geminiKey) {
       const prompt = "Eres un intérprete de consultas nutricionales. A partir del texto del usuario, " +
-        "devuelve JSON con esta forma exacta: {\"categories\": [\"...\"], \"searchTerms\": [\"...\"]}. " +
+        "devuelve JSON con esta forma exacta: {\"categories\": [\"...\"], \"searchTerms\": [\"...\"], \"searchTermsEs\": [\"...\"]}. " +
         "\"searchTerms\" debe tener 3 a 6 nombres de alimentos genéricos EN INGLÉS (para buscar en bases de datos " +
-        "nutricionales como USDA), relevantes para la consulta. No incluyas explicación, solo el JSON.\n\n" +
-        "Consulta del usuario: " + JSON.stringify(text);
+        "nutricionales como USDA), relevantes para la consulta. \"searchTermsEs\" es la traducción al español de " +
+        "cada elemento de \"searchTerms\", en el mismo orden y con el mismo número de elementos. No incluyas " +
+        "explicación, solo el JSON.\n\nConsulta del usuario: " + JSON.stringify(text);
       const res = await AI.ask(prompt, { provider: "gemini", json: true });
       if (res.ok) {
         const parsed = AI.parseJsonLoose(res.text);
         if (parsed && Array.isArray(parsed.searchTerms) && parsed.searchTerms.length) {
-          return { source: "ai", categories: parsed.categories || [], searchTerms: parsed.searchTerms.slice(0, 6), language: "es" };
+          const searchTerms = parsed.searchTerms.slice(0, 6);
+          const termLabels = {};
+          searchTerms.forEach((t, i) => {
+            termLabels[t] = (Array.isArray(parsed.searchTermsEs) && parsed.searchTermsEs[i]) || EN_ES_TERMS[t.toLowerCase()] || t;
+          });
+          return { source: "ai", categories: parsed.categories || [], searchTerms, termLabels, language: "es" };
         }
       }
       // IA disponible pero falló o devolvió algo inválido: cae a heurística local
@@ -737,7 +772,7 @@ const CandidateEngine = {
         candidates.push({
           fdcId: food.fdcId,
           name: food.description,
-          matchedTerm: term,
+          matchedTerm: (interpreted.termLabels && interpreted.termLabels[term]) || term,
           dataType: food.dataType,
         });
       }
@@ -1017,6 +1052,24 @@ function renderStatusChip(card) {
   card.appendChild(checkBtn);
 }
 
+function renderRecipeCards(container, meals) {
+  const titleEls = [];
+  meals.forEach(m => {
+    const titleStrong = el("strong", {}, [m.strMeal]);
+    titleEls.push(titleStrong);
+    const rc = el("div", { class: "recipe-card" }, [
+      el("img", { src: m.strMealThumb, alt: "" }, []),
+      el("div", { class: "col" }, [titleStrong]),
+      el("button", { class: "btn secondary small" }, ["Ver"]),
+    ]);
+    rc.querySelector("button").addEventListener("click", () => showRecipeModal(m.idMeal));
+    container.appendChild(rc);
+  });
+  AI.translateMealTitles(meals.map(m => m.strMeal)).then(nameMap => {
+    meals.forEach((m, i) => { if (nameMap[m.strMeal]) titleEls[i].textContent = nameMap[m.strMeal]; });
+  }).catch(() => {});
+}
+
 /* =========================================================================
    VISTAS
    ========================================================================= */
@@ -1246,15 +1299,7 @@ const Views = {
     RecipeEngine.forIngredient(enriched.name).then(meals => {
       recipesWrap.innerHTML = "";
       if (!meals.length) { recipesWrap.textContent = "Sin recetas encontradas en TheMealDB para este ingrediente."; return; }
-      meals.forEach(m => {
-        const rc = el("div", { class: "recipe-card" }, [
-          el("img", { src: m.strMealThumb, alt: "" }, []),
-          el("div", { class: "col" }, [el("strong", {}, [m.strMeal])]),
-          el("button", { class: "btn secondary small" }, ["Ver"]),
-        ]);
-        rc.querySelector("button").addEventListener("click", () => showRecipeModal(m.idMeal));
-        recipesWrap.appendChild(rc);
-      });
+      renderRecipeCards(recipesWrap, meals);
     });
 
     root.appendChild(el("h2", {}, ["Fuentes"]));
@@ -1281,15 +1326,7 @@ const Views = {
       const meals = await RecipeEngine.forIngredient(enTerm);
       wrap.innerHTML = "";
       if (!meals.length) { wrap.appendChild(el("div", { class: "empty-state" }, [el("span", { class: "big" }, ["🍽️"]), "Sin resultados."])); return; }
-      meals.forEach(m => {
-        const rc = el("div", { class: "recipe-card" }, [
-          el("img", { src: m.strMealThumb, alt: "" }, []),
-          el("div", { class: "col" }, [el("strong", {}, [m.strMeal])]),
-          el("button", { class: "btn secondary small" }, ["Ver"]),
-        ]);
-        rc.querySelector("button").addEventListener("click", () => showRecipeModal(m.idMeal));
-        wrap.appendChild(rc);
-      });
+      renderRecipeCards(wrap, meals);
     });
 
     root.appendChild(el("div", { class: "info-banner" }, [
