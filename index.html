@@ -627,6 +627,20 @@ const AI = {
     if (m) { try { return JSON.parse(m[0]); } catch {} }
     return null;
   },
+  // Una sola llamada para traducir varios nombres de golpe (en vez de una por candidato)
+  async translateFoodNames(names) {
+    if (!names.length) return {};
+    const geminiKey = await Credentials.get("gemini");
+    const provider = geminiKey ? "gemini" : (await Credentials.get("claude")) ? "claude" : null;
+    if (!provider) return {};
+    const prompt = "Traduce estos nombres de alimentos (en inglés, de USDA) a nombres naturales y breves en " +
+      "español, sin anotaciones técnicas como ', raw' o ', cooked'. Devuelve SOLO un JSON de la forma " +
+      "{\"nombre original\": \"traducción\", ...} con una entrada por cada nombre de esta lista: " + JSON.stringify(names);
+    const res = await this.ask(prompt, { provider, json: true });
+    if (!res.ok) return {};
+    const parsed = this.parseJsonLoose(res.text);
+    return (parsed && typeof parsed === "object") ? parsed : {};
+  },
 };
 
 /* =========================================================================
@@ -801,6 +815,38 @@ function phraseVariants(phrase) {
   const last = parts[parts.length - 1];
   const withLast = w => [...parts.slice(0, -1), w].join(" ");
   return [phrase, withLast(pluralizeWord(last)), withLast(singularizeWord(last))];
+}
+
+// Diccionario de ingredientes comunes para no depender de la IA en el caso
+// normal; si el término no está aquí, se recurre a una traducción por IA.
+const ES_EN_INGREDIENTS = {
+  jengibre: "ginger", papaya: "papaya", yogur: "yogurt", yogurt: "yogurt", avena: "oats",
+  platano: "banana", "plátano": "banana", banana: "banana", arroz: "rice", pollo: "chicken",
+  kiwi: "kiwi", almendras: "almonds", espinacas: "spinach", citricos: "citrus", "cítricos": "citrus",
+  miel: "honey", ajo: "garlic", manzanilla: "chamomile", sandia: "watermelon", "sandía": "watermelon",
+  pepino: "cucumber", salmon: "salmon", "salmón": "salmon", huevos: "eggs", huevo: "eggs",
+  cerezas: "cherries", agua: "water", fruta: "fruit", verdura: "vegetable", ternera: "beef",
+  cerdo: "pork", pavo: "turkey", pescado: "fish", atun: "tuna", "atún": "tuna", queso: "cheese",
+  leche: "milk", patata: "potato", papa: "potato", tomate: "tomato", cebolla: "onion",
+  zanahoria: "carrot", limon: "lemon", "limón": "lemon", naranja: "orange", manzana: "apple",
+  fresas: "strawberry", fresa: "strawberry", champinones: "mushrooms", "champiñones": "mushrooms",
+  setas: "mushrooms", brocoli: "broccoli", "brócoli": "broccoli", calabacin: "zucchini",
+  "calabacín": "zucchini", berenjena: "eggplant", lentejas: "lentils", garbanzos: "chickpeas",
+  judias: "beans", "judías": "beans", frijoles: "beans", chocolate: "chocolate", canela: "cinnamon",
+  coco: "coconut", aguacate: "avocado", pina: "pineapple", "piña": "pineapple", uvas: "grapes",
+  pasta: "pasta", harina: "flour", mantequilla: "butter",
+};
+async function translateIngredientTerm(term) {
+  const key = term.trim().toLowerCase();
+  if (ES_EN_INGREDIENTS[key]) return ES_EN_INGREDIENTS[key];
+  const geminiKey = await Credentials.get("gemini");
+  const provider = geminiKey ? "gemini" : (await Credentials.get("claude")) ? "claude" : null;
+  if (!provider) return term;
+  const prompt = "Traduce este ingrediente de cocina al inglés, en un máximo de 2 palabras, tal como aparecería " +
+    "en una lista de ingredientes de recetas (ej. 'chicken breast', 'sweet potato'). Responde ÚNICAMENTE con la " +
+    "traducción, sin comillas ni explicación: " + term;
+  const res = await AI.ask(prompt, { provider, json: false });
+  return res.ok ? res.text.trim().replace(/^["']|["']$/g, "") : term;
 }
 
 const RecipeEngine = {
@@ -1066,17 +1112,23 @@ const Views = {
       }
 
       const medals = ["🥇", "🥈", "🥉", "4.", "5."];
+      const nameStrongEls = [];
       candidates.forEach((c, i) => {
+        const nameStrong = el("strong", {}, [c.name]);
+        nameStrongEls.push(nameStrong);
         const cardEl = el("div", { class: "candidate-card" }, [
           el("div", { class: "candidate-rank" }, [medals[i] || (i + 1) + "."]),
           el("div", { class: "candidate-body" }, [
-            el("strong", {}, [c.name]),
+            nameStrong,
             el("span", { class: "muted" }, ["Relacionado con: " + c.matchedTerm]),
           ]),
         ]);
         cardEl.addEventListener("click", () => { location.hash = "#/alimento/" + c.fdcId; });
         resultsWrap.appendChild(cardEl);
       });
+      AI.translateFoodNames(candidates.map(c => c.name)).then(nameMap => {
+        candidates.forEach((c, i) => { if (nameMap[c.name]) nameStrongEls[i].textContent = nameMap[c.name]; });
+      }).catch(() => {});
     }
   },
 
@@ -1212,7 +1264,7 @@ const Views = {
   async recetas(root) {
     root.appendChild(el("h1", {}, ["🍳 Recetas"]));
     const card = el("div", { class: "card" }, []);
-    const input = el("input", { type: "text", placeholder: "Ingrediente principal, ej: chicken, kiwi, rice…" }, []);
+    const input = el("input", { type: "text", placeholder: "Ingrediente principal, ej: pollo, kiwi, arroz…" }, []);
     card.appendChild(el("label", {}, ["Buscar por ingrediente"]));
     card.appendChild(input);
     const btn = el("button", { class: "btn full", style: "margin-top:.6rem" }, ["Buscar recetas"]);
@@ -1225,7 +1277,8 @@ const Views = {
       const q = input.value.trim();
       if (!q) return;
       wrap.innerHTML = "Buscando…";
-      const meals = await RecipeEngine.forIngredient(q);
+      const enTerm = await translateIngredientTerm(q);
+      const meals = await RecipeEngine.forIngredient(enTerm);
       wrap.innerHTML = "";
       if (!meals.length) { wrap.appendChild(el("div", { class: "empty-state" }, [el("span", { class: "big" }, ["🍽️"]), "Sin resultados."])); return; }
       meals.forEach(m => {
@@ -1403,21 +1456,63 @@ async function showRecipeModal(id) {
     const measure = meal["strMeasure" + i];
     if (ing && ing.trim()) ingredients.push((measure ? measure.trim() + " " : "") + ing.trim());
   }
+  const titleEl = el("h2", { style: "margin-top:0" }, [meal.strMeal]);
+  const ingredientsList = el("ul", { class: "plain" }, ingredients.map(i => el("li", {}, [i])));
+  const instructionsEl = el("p", {}, [meal.strInstructions]);
+  const translateStatus = el("p", { class: "muted" }, ["Traduciendo receta al español…"]);
   const panel = el("div", {
     class: "card", style: "max-width:640px;width:100%;max-height:85vh;overflow:auto;margin:0;border-radius:16px 16px 0 0",
   }, [
-    el("h2", { style: "margin-top:0" }, [meal.strMeal]),
+    titleEl,
     el("img", { src: meal.strMealThumb, alt: "", style: "width:100%;border-radius:var(--radius);margin-bottom:.6rem" }, []),
+    translateStatus,
     el("h3", {}, ["Ingredientes"]),
-    el("ul", { class: "plain" }, ingredients.map(i => el("li", {}, [i]))),
+    ingredientsList,
     el("h3", {}, ["Instrucciones"]),
-    el("p", {}, [meal.strInstructions]),
+    instructionsEl,
     el("button", { class: "btn full" }, ["Cerrar"]),
   ]);
   panel.querySelector("button:last-child").addEventListener("click", () => overlay.remove());
   overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
   overlay.appendChild(panel);
   document.body.appendChild(overlay);
+
+  const prompt = "Traduce esta receta al español de forma natural y clara, sin inventar ni omitir ingredientes o " +
+    "pasos. Devuelve SOLO un JSON con esta forma exacta: {\"titulo\": \"...\", \"ingredientes\": [array de " +
+    "strings, mismo número y orden que la lista original], \"instrucciones\": \"...\"}. " +
+    "Título original: " + JSON.stringify(meal.strMeal) + ". Ingredientes originales en orden: " +
+    JSON.stringify(ingredients) + ". Instrucciones originales: " + JSON.stringify(meal.strInstructions);
+
+  async function runTranslation(provider) {
+    const res2 = await AI.ask(prompt, { provider, json: true });
+    if (res2.ok) {
+      const parsed = AI.parseJsonLoose(res2.text);
+      if (parsed && parsed.titulo) {
+        titleEl.textContent = parsed.titulo;
+        if (Array.isArray(parsed.ingredientes) && parsed.ingredientes.length === ingredients.length) {
+          [...ingredientsList.children].forEach((li, i) => { li.textContent = parsed.ingredientes[i]; });
+        }
+        if (parsed.instrucciones) instructionsEl.textContent = parsed.instrucciones;
+        translateStatus.remove();
+        return;
+      }
+    }
+    translateStatus.innerHTML = "";
+    translateStatus.appendChild(el("span", {}, ["No se pudo traducir la receta" + (res2.error ? " (" + res2.error + ")" : "") + "."]));
+    const claudeKey = provider === "gemini" ? await Credentials.get("claude") : null;
+    if (claudeKey) {
+      const retryBtn = el("button", { class: "btn secondary small", style: "margin-left:.5rem" }, ["Traducir con Claude"]);
+      retryBtn.addEventListener("click", async () => {
+        retryBtn.disabled = true; retryBtn.textContent = "Traduciendo…";
+        await runTranslation("claude");
+      });
+      translateStatus.appendChild(retryBtn);
+    }
+  }
+
+  const geminiKey = await Credentials.get("gemini");
+  if (geminiKey) runTranslation("gemini");
+  else translateStatus.remove();
 }
 
 /* =========================================================================
