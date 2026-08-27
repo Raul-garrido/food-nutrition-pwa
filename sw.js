@@ -1,4 +1,4 @@
-const CACHE_NAME = "food-pwa-shell-v1";
+const CACHE_NAME = "food-pwa-shell-v2";
 const SHELL_FILES = ["./", "./index.html", "./manifest.webmanifest", "./icon.svg"];
 
 self.addEventListener("install", (event) => {
@@ -25,16 +25,16 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
 
+  // Red primero: así cada actualización desplegada llega de inmediato a
+  // quien tenga conexión, en vez de quedarse pegado en la primera copia que
+  // se cacheó. Solo se usa la caché como respaldo si falla la red (offline).
   event.respondWith(
-    caches.match(req).then((cached) => {
-      if (cached) return cached;
-      return fetch(req).then((res) => {
-        if (res && res.ok) {
-          const copy = res.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
-        }
-        return res;
-      }).catch(() => cached);
-    })
+    fetch(req).then((res) => {
+      if (res && res.ok) {
+        const copy = res.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
+      }
+      return res;
+    }).catch(() => caches.match(req))
   );
 });

@@ -1,0 +1,1580 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Food &amp; Nutrition AI</title>
+<meta name="description" content="Analiza alimentos y síntomas nutricionales con datos reales de USDA y Open Food Facts, explicados por IA. Sin backend, sin cuentas.">
+<meta name="theme-color" content="#12312a">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<style>
+:root{
+  --bg:#0b1210; --bg-elev:#121b18; --bg-card:#16211d; --border:#26352f;
+  --text:#eaf3ee; --text-dim:#a9bdb4; --text-faint:#7b9084;
+  --accent:#3ea373; --accent-strong:#57c290; --accent-contrast:#04140d;
+  --warn:#e0a63e; --warn-bg:#2b2210; --danger:#e05a4e; --danger-bg:#2b1512;
+  --ok:#3ea373; --info:#4c9fd6;
+  --radius:14px; --radius-sm:8px;
+  --shadow:0 8px 24px rgba(0,0,0,.35);
+  font-size:16px;
+}
+@media (prefers-color-scheme: light){
+  :root{
+    --bg:#f5f8f6; --bg-elev:#ffffff; --bg-card:#ffffff; --border:#dbe6e0;
+    --text:#132019; --text-dim:#3f544a; --text-faint:#6b8177;
+    --accent:#1f7a53; --accent-strong:#166043; --accent-contrast:#f2fbf6;
+    --warn:#9a6b12; --warn-bg:#fbf1da; --danger:#b3382c; --danger-bg:#fbe6e3;
+    --ok:#1f7a53; --info:#1f6fa8;
+    --shadow:0 8px 24px rgba(20,40,30,.08);
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  min-height:100vh; display:flex; flex-direction:column;
+}
+a{color:var(--accent-strong)}
+button{font-family:inherit}
+#app{display:flex; flex-direction:column; min-height:100vh}
+header.topbar{
+  position:sticky; top:0; z-index:20; background:var(--bg-elev);
+  border-bottom:1px solid var(--border); padding:.6rem .9rem;
+  display:flex; align-items:center; justify-content:space-between; gap:.6rem;
+}
+.brand{display:flex; align-items:center; gap:.5rem; font-weight:700; font-size:1.05rem}
+.brand .logo{width:26px; height:26px; flex:none}
+.status-pill{
+  display:inline-flex; align-items:center; gap:.35rem; font-size:.75rem;
+  padding:.25rem .55rem; border-radius:999px; border:1px solid var(--border);
+  color:var(--text-dim); white-space:nowrap;
+}
+.status-pill.online{color:var(--ok); border-color:var(--ok)}
+.status-pill.offline{color:var(--warn); border-color:var(--warn)}
+.dot{width:.5rem; height:.5rem; border-radius:50%; background:currentColor}
+nav.tabs{
+  position:sticky; top:48px; z-index:19; background:var(--bg);
+  display:flex; gap:.25rem; overflow-x:auto; padding:.4rem .6rem;
+  border-bottom:1px solid var(--border);
+}
+nav.tabs::-webkit-scrollbar{display:none}
+nav.tabs button{
+  flex:none; background:transparent; border:1px solid transparent; color:var(--text-dim);
+  padding:.45rem .75rem; border-radius:999px; font-size:.85rem; cursor:pointer;
+  display:flex; align-items:center; gap:.35rem;
+}
+nav.tabs button.active{background:var(--bg-card); border-color:var(--border); color:var(--text); font-weight:600}
+main{flex:1; padding:1rem .9rem 3rem; max-width:820px; width:100%; margin:0 auto}
+h1,h2,h3{line-height:1.25}
+h1{font-size:1.4rem; margin:.2rem 0 .8rem}
+h2{font-size:1.1rem; margin:1.4rem 0 .6rem}
+h3{font-size:1rem; margin:.9rem 0 .4rem}
+p{line-height:1.5; color:var(--text-dim)}
+.card{
+  background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius);
+  padding:1rem; margin-bottom:.8rem; box-shadow:var(--shadow);
+}
+.card.tight{padding:.7rem .9rem}
+.row{display:flex; gap:.6rem; flex-wrap:wrap}
+.col{flex:1; min-width:0}
+label{display:block; font-size:.8rem; color:var(--text-dim); margin-bottom:.25rem; font-weight:600}
+input[type=text],input[type=password],input[type=search],textarea,select{
+  width:100%; background:var(--bg); border:1px solid var(--border); color:var(--text);
+  padding:.6rem .7rem; border-radius:var(--radius-sm); font-size:.95rem; outline:none;
+}
+input:focus,textarea:focus,select:focus{border-color:var(--accent)}
+textarea{resize:vertical; min-height:4.5rem}
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:.4rem;
+  background:var(--accent); color:var(--accent-contrast); border:none;
+  padding:.65rem 1rem; border-radius:var(--radius-sm); font-weight:700; font-size:.9rem;
+  cursor:pointer;
+}
+.btn:hover{background:var(--accent-strong)}
+.btn:disabled{opacity:.5; cursor:not-allowed}
+.btn.secondary{background:transparent; border:1px solid var(--border); color:var(--text)}
+.btn.danger{background:var(--danger); color:#fff}
+.btn.small{padding:.4rem .7rem; font-size:.8rem}
+.btn.full{width:100%}
+.chip{
+  display:inline-flex; align-items:center; gap:.3rem; font-size:.75rem;
+  padding:.2rem .55rem; border-radius:999px; border:1px solid var(--border); color:var(--text-dim);
+}
+.chip.ok{color:var(--ok); border-color:var(--ok)}
+.chip.warn{color:var(--warn); border-color:var(--warn)}
+.chip.danger{color:var(--danger); border-color:var(--danger)}
+.chip.info{color:var(--info); border-color:var(--info)}
+.badge-dot{width:.5rem;height:.5rem;border-radius:50%;display:inline-block}
+.muted{color:var(--text-faint); font-size:.8rem}
+.divider{height:1px; background:var(--border); margin:.8rem 0; border:none}
+.grid-2{display:grid; grid-template-columns:1fr 1fr; gap:.6rem}
+@media (max-width:520px){.grid-2{grid-template-columns:1fr}}
+.candidate-card{
+  display:flex; align-items:center; gap:.7rem; padding:.8rem; border-radius:var(--radius);
+  background:var(--bg-card); border:1px solid var(--border); margin-bottom:.6rem; cursor:pointer;
+}
+.candidate-card:hover{border-color:var(--accent)}
+.candidate-rank{font-size:1.4rem; width:2rem; text-align:center; flex:none}
+.candidate-body{flex:1; min-width:0}
+.candidate-body strong{display:block; font-size:1rem}
+.stars{color:var(--warn); letter-spacing:1px}
+.warning-banner{
+  background:var(--danger-bg); border:1px solid var(--danger); color:var(--text);
+  border-radius:var(--radius); padding:.9rem; margin-bottom:.9rem;
+}
+.warning-banner strong{color:var(--danger)}
+.info-banner{
+  background:var(--warn-bg); border:1px solid var(--warn); color:var(--text);
+  border-radius:var(--radius); padding:.8rem; margin-bottom:.9rem; font-size:.85rem;
+}
+.nutrient-table{width:100%; border-collapse:collapse; font-size:.88rem}
+.nutrient-table td,.nutrient-table th{padding:.35rem .2rem; border-bottom:1px solid var(--border); text-align:left}
+.nutrient-table th{color:var(--text-faint); font-weight:600}
+ul.plain{list-style:none; margin:0; padding:0}
+ul.plain li{padding:.3rem 0; font-size:.9rem}
+.cautions li::before{content:"⚠ "; color:var(--warn)}
+.benefits li::before{content:"✓ "; color:var(--ok)}
+.diag-row{display:flex; align-items:center; justify-content:space-between; padding:.55rem 0; border-bottom:1px solid var(--border)}
+.diag-row:last-child{border-bottom:none}
+.diag-row .name{font-weight:600}
+.diag-detail{font-size:.8rem; color:var(--text-faint); margin-top:.2rem}
+#toast-container{position:fixed; bottom:1rem; left:50%; transform:translateX(-50%); z-index:50; display:flex; flex-direction:column; gap:.4rem; width:min(92vw,420px)}
+.toast{background:var(--bg-elev); border:1px solid var(--border); color:var(--text); padding:.7rem .9rem; border-radius:var(--radius-sm); box-shadow:var(--shadow); font-size:.85rem}
+.toast.error{border-color:var(--danger)}
+.toast.success{border-color:var(--ok)}
+.skeleton{background:linear-gradient(90deg,var(--bg-card),var(--border),var(--bg-card)); background-size:200% 100%; animation:shimmer 1.4s infinite; border-radius:var(--radius-sm); height:1rem}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.footer-note{margin-top:2rem; font-size:.75rem; color:var(--text-faint); text-align:center; line-height:1.5}
+.key-row{display:flex; align-items:center; gap:.5rem}
+.key-row input{flex:1}
+.toggle-row{display:flex; align-items:center; gap:.5rem; font-size:.85rem; color:var(--text-dim)}
+.range-buttons{display:flex; gap:.4rem; flex-wrap:wrap}
+.range-buttons button{flex:1}
+.empty-state{text-align:center; padding:2.5rem 1rem; color:var(--text-faint)}
+.empty-state .big{font-size:2.4rem; display:block; margin-bottom:.4rem}
+.recipe-card{display:flex; gap:.7rem; align-items:center; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:.7rem; margin-bottom:.6rem}
+.recipe-card img{width:64px; height:64px; border-radius:var(--radius-sm); object-fit:cover; flex:none; background:var(--border)}
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="brand"><span class="logo" aria-hidden="true">🥗</span><span>Food &amp; Nutrition AI</span></div>
+    <span id="net-status" class="status-pill offline"><span class="dot"></span><span>—</span></span>
+  </header>
+  <nav class="tabs" id="tabs"></nav>
+  <main id="view"></main>
+  <div id="toast-container"></div>
+</div>
+
+<script>
+"use strict";
+
+/* =========================================================================
+   CONFIG
+   ========================================================================= */
+const CONFIG = {
+  usda: { base: "https://api.nal.usda.gov/fdc/v1" },
+  off:  { base: "https://world.openfoodfacts.org" },
+  mealdb: { base: "https://www.themealdb.com/api/json/v1" },
+  gemini: { base: "https://generativelanguage.googleapis.com/v1beta" },
+  claude: { base: "https://api.anthropic.com/v1", version: "2023-06-01" },
+  cacheDefaultDays: 7,
+  maxCachedFoods: 100,
+  maxCachedRecipes: 100,
+  candidateLimit: 5,
+};
+
+const DEFAULT_MODELS = {
+  gemini: "gemini-flash-latest",
+  claude: "claude-sonnet-4-5",
+};
+
+/* =========================================================================
+   UTILIDADES
+   ========================================================================= */
+const $ = (sel, root) => (root || document).querySelector(sel);
+const el = (tag, attrs, children) => {
+  const node = document.createElement(tag);
+  if (attrs) for (const k in attrs) {
+    if (k === "class") node.className = attrs[k];
+    else if (k === "html") node.innerHTML = attrs[k];
+    else if (k.startsWith("on") && typeof attrs[k] === "function") node.addEventListener(k.slice(2), attrs[k]);
+    else node.setAttribute(k, attrs[k]);
+  }
+  (children || []).forEach(c => { if (c) node.appendChild(typeof c === "string" ? document.createTextNode(c) : c); });
+  return node;
+};
+const escapeHtml = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, m => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m]));
+function debounce(fn, ms) {
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+function fmtNum(n, digits) {
+  if (n == null || isNaN(n)) return "—";
+  return Number(n).toLocaleString("es-ES", { maximumFractionDigits: digits != null ? digits : 1 });
+}
+function toast(msg, type) {
+  const c = $("#toast-container");
+  const t = el("div", { class: "toast" + (type ? " " + type : "") }, [msg]);
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 4200);
+}
+async function withTimeout(promise, ms) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  try { return await promise(ctrl.signal); }
+  finally { clearTimeout(timer); }
+}
+
+/* =========================================================================
+   INDEXEDDB
+   ========================================================================= */
+const IDB = (() => {
+  const DB_NAME = "food-pwa-db";
+  const DB_VERSION = 1;
+  let dbPromise = null;
+
+  function open() {
+    if (dbPromise) return dbPromise;
+    dbPromise = new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains("settings")) db.createObjectStore("settings", { keyPath: "key" });
+        if (!db.objectStoreNames.contains("cache")) db.createObjectStore("cache", { keyPath: "cacheKey" });
+        if (!db.objectStoreNames.contains("favorites")) db.createObjectStore("favorites", { keyPath: "id" });
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    return dbPromise;
+  }
+
+  function tx(store, mode) {
+    return open().then(db => db.transaction(store, mode).objectStore(store));
+  }
+
+  function reqToPromise(req) {
+    return new Promise((resolve, reject) => {
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  return {
+    async get(store, key) {
+      try { const s = await tx(store, "readonly"); return await reqToPromise(s.get(key)); }
+      catch (e) { console.warn("IDB get error", e); return undefined; }
+    },
+    async getAll(store) {
+      try { const s = await tx(store, "readonly"); return await reqToPromise(s.getAll()); }
+      catch (e) { console.warn("IDB getAll error", e); return []; }
+    },
+    async put(store, value) {
+      try { const s = await tx(store, "readwrite"); return await reqToPromise(s.put(value)); }
+      catch (e) { console.warn("IDB put error", e); return null; }
+    },
+    async delete(store, key) {
+      try { const s = await tx(store, "readwrite"); return await reqToPromise(s.delete(key)); }
+      catch (e) { console.warn("IDB delete error", e); return null; }
+    },
+    async clear(store) {
+      try { const s = await tx(store, "readwrite"); return await reqToPromise(s.clear()); }
+      catch (e) { console.warn("IDB clear error", e); return null; }
+    },
+    async available() {
+      try { await open(); return true; } catch { return false; }
+    },
+  };
+})();
+
+/* =========================================================================
+   CREDENCIALES (API keys) — IndexedDB si "recordar" está activo, si no
+   sessionStorage (se borran al cerrar la pestaña/navegador).
+   ========================================================================= */
+const Credentials = (() => {
+  const SESSION_KEY = "food-pwa-session-keys";
+
+  function readSession() {
+    try { return JSON.parse(sessionStorage.getItem(SESSION_KEY) || "{}"); }
+    catch { return {}; }
+  }
+  function writeSession(obj) {
+    try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(obj)); } catch {}
+  }
+
+  return {
+    async getRemember() {
+      const s = await IDB.get("settings", "rememberKeys");
+      return s ? !!s.value : false;
+    },
+    async setRemember(value) {
+      await IDB.put("settings", { key: "rememberKeys", value: !!value });
+      if (!value) {
+        // al desactivar, las claves guardadas en IndexedDB se eliminan
+        await IDB.delete("settings", "apiKeys");
+      }
+    },
+    async getAll() {
+      const remember = await this.getRemember();
+      if (remember) {
+        const rec = await IDB.get("settings", "apiKeys");
+        return (rec && rec.value) || {};
+      }
+      return readSession();
+    },
+    async set(provider, value) {
+      const remember = await this.getRemember();
+      const all = await this.getAll();
+      all[provider] = value;
+      if (remember) await IDB.put("settings", { key: "apiKeys", value: all });
+      else writeSession(all);
+    },
+    async clearAll() {
+      await IDB.delete("settings", "apiKeys");
+      writeSession({});
+    },
+    async get(provider) {
+      const all = await this.getAll();
+      return all[provider] || "";
+    },
+  };
+})();
+
+/* =========================================================================
+   AJUSTES GENERALES (modelos, cache, permitir IA de pago)
+   ========================================================================= */
+const Settings = {
+  async get(key, fallback) {
+    const rec = await IDB.get("settings", key);
+    return rec ? rec.value : fallback;
+  },
+  async set(key, value) {
+    await IDB.put("settings", { key, value });
+  },
+};
+
+/* =========================================================================
+   CACHE MANAGER (IndexedDB, con caducidad configurable)
+   ========================================================================= */
+const CacheManager = {
+  async policy() {
+    // 'off' | '7' | '30' | 'never'
+    return await Settings.get("cachePolicy", "7");
+  },
+  async setPolicy(p) { await Settings.set("cachePolicy", p); },
+  async get(key) {
+    const policy = await this.policy();
+    if (policy === "off") return null;
+    const rec = await IDB.get("cache", key);
+    if (!rec) return null;
+    if (rec.expiresAt && Date.now() > rec.expiresAt) {
+      await IDB.delete("cache", key);
+      return null;
+    }
+    return rec.data;
+  },
+  async set(key, data) {
+    const policy = await this.policy();
+    if (policy === "off") return;
+    let expiresAt = null;
+    if (policy === "7") expiresAt = Date.now() + 7 * 86400000;
+    else if (policy === "30") expiresAt = Date.now() + 30 * 86400000;
+    await IDB.put("cache", { cacheKey: key, data, savedAt: Date.now(), expiresAt });
+    this._trim();
+  },
+  async _trim() {
+    const all = await IDB.getAll("cache");
+    if (all.length > CONFIG.maxCachedFoods + CONFIG.maxCachedRecipes) {
+      all.sort((a, b) => a.savedAt - b.savedAt);
+      const toRemove = all.slice(0, all.length - (CONFIG.maxCachedFoods + CONFIG.maxCachedRecipes));
+      for (const r of toRemove) await IDB.delete("cache", r.cacheKey);
+    }
+  },
+  async clearAll() { await IDB.clear("cache"); },
+};
+
+/* =========================================================================
+   FAVORITOS
+   ========================================================================= */
+const Favorites = {
+  async list() { return (await IDB.getAll("favorites")).sort((a, b) => b.addedAt - a.addedAt); },
+  async add(type, refId, name, snapshot) {
+    const id = type + ":" + refId;
+    await IDB.put("favorites", { id, type, refId, name, snapshot, addedAt: Date.now() });
+  },
+  async remove(id) { await IDB.delete("favorites", id); },
+  async has(type, refId) {
+    const rec = await IDB.get("favorites", type + ":" + refId);
+    return !!rec;
+  },
+};
+
+/* =========================================================================
+   LIMITADOR DE PETICIONES (para respetar límites de Open Food Facts)
+   ========================================================================= */
+function makeRateLimiter(maxPerWindow, windowMs) {
+  const hits = [];
+  return {
+    canGo() {
+      const now = Date.now();
+      while (hits.length && now - hits[0] > windowMs) hits.shift();
+      return hits.length < maxPerWindow;
+    },
+    record() { hits.push(Date.now()); },
+    waitMs() {
+      if (this.canGo()) return 0;
+      return windowMs - (Date.now() - hits[0]) + 50;
+    },
+  };
+}
+const offReadLimiter = makeRateLimiter(15, 60000);
+const offSearchLimiter = makeRateLimiter(10, 60000);
+
+/* =========================================================================
+   HTTP helper
+   ========================================================================= */
+async function fetchJson(url, opts, timeoutMs) {
+  try {
+    const data = await withTimeout(async (signal) => {
+      const res = await fetch(url, Object.assign({}, opts, { signal }));
+      const text = await res.text();
+      let json = null;
+      try { json = text ? JSON.parse(text) : null; } catch { json = null; }
+      return { ok: res.ok, status: res.status, data: json, raw: text };
+    }, timeoutMs || 12000);
+    return data;
+  } catch (e) {
+    const isAbort = e && e.name === "AbortError";
+    return { ok: false, status: 0, data: null, error: isAbort ? "timeout" : ("red/CORS: " + (e && e.message || e)) };
+  }
+}
+
+/* =========================================================================
+   USDA FoodData Central
+   ========================================================================= */
+const USDA = {
+  async search(query, pageSize) {
+    const key = await Credentials.get("usda");
+    if (!key) return { ok: false, error: "no-key" };
+    const cacheKey = "usda:search:" + query.toLowerCase();
+    const cached = await CacheManager.get(cacheKey);
+    if (cached) return { ok: true, data: cached, cached: true };
+    const url = CONFIG.usda.base + "/foods/search?api_key=" + encodeURIComponent(key) +
+      "&query=" + encodeURIComponent(query) + "&pageSize=" + (pageSize || 8) +
+      "&dataType=" + encodeURIComponent("Foundation,SR Legacy");
+    const res = await fetchJson(url, { method: "GET" });
+    if (res.ok && res.data) { await CacheManager.set(cacheKey, res.data); return { ok: true, data: res.data }; }
+    return { ok: false, status: res.status, error: res.error || ("HTTP " + res.status) };
+  },
+  async details(fdcId) {
+    const key = await Credentials.get("usda");
+    if (!key) return { ok: false, error: "no-key" };
+    const cacheKey = "usda:details:" + fdcId;
+    const cached = await CacheManager.get(cacheKey);
+    if (cached) return { ok: true, data: cached, cached: true };
+    const url = CONFIG.usda.base + "/food/" + encodeURIComponent(fdcId) + "?api_key=" + encodeURIComponent(key);
+    const res = await fetchJson(url, { method: "GET" });
+    if (res.ok && res.data) { await CacheManager.set(cacheKey, res.data); return { ok: true, data: res.data }; }
+    return { ok: false, status: res.status, error: res.error || ("HTTP " + res.status) };
+  },
+};
+
+/* =========================================================================
+   Open Food Facts
+   Nota: los navegadores no permiten fijar un User-Agent personalizado desde
+   fetch(); se envía el del propio navegador. No requiere API key.
+   ========================================================================= */
+const OFF = {
+  async byBarcode(ean) {
+    if (!offReadLimiter.canGo()) return { ok: false, error: "rate-limit", waitMs: offReadLimiter.waitMs() };
+    const cacheKey = "off:barcode:" + ean;
+    const cached = await CacheManager.get(cacheKey);
+    if (cached) return { ok: true, data: cached, cached: true };
+    offReadLimiter.record();
+    const url = CONFIG.off.base + "/api/v2/product/" + encodeURIComponent(ean) +
+      ".json?fields=product_name,brands,nutriments,ingredients_text,image_small_url,nutriscore_grade";
+    const res = await fetchJson(url, { method: "GET" });
+    if (res.ok && res.data) { await CacheManager.set(cacheKey, res.data); return { ok: true, data: res.data }; }
+    return { ok: false, status: res.status, error: res.error || ("HTTP " + res.status) };
+  },
+  async search(query) {
+    if (!offSearchLimiter.canGo()) return { ok: false, error: "rate-limit", waitMs: offSearchLimiter.waitMs() };
+    const cacheKey = "off:search:" + query.toLowerCase();
+    const cached = await CacheManager.get(cacheKey);
+    if (cached) return { ok: true, data: cached, cached: true };
+    offSearchLimiter.record();
+    const url = CONFIG.off.base + "/cgi/search.pl?search_terms=" + encodeURIComponent(query) +
+      "&search_simple=1&action=process&json=1&page_size=10";
+    const res = await fetchJson(url, { method: "GET" });
+    if (res.ok && res.data) { await CacheManager.set(cacheKey, res.data); return { ok: true, data: res.data }; }
+    return { ok: false, status: res.status, error: res.error || ("HTTP " + res.status) };
+  },
+};
+
+/* =========================================================================
+   TheMealDB
+   ========================================================================= */
+const MealDB = {
+  async _key() { return (await Settings.get("mealdbKey", "1")) || "1"; },
+  async filterByIngredient(ingredient) {
+    const k = await this._key();
+    const cacheKey = "mealdb:filter:" + ingredient.toLowerCase();
+    const cached = await CacheManager.get(cacheKey);
+    if (cached) return { ok: true, data: cached, cached: true };
+    const url = CONFIG.mealdb.base + "/" + k + "/filter.php?i=" + encodeURIComponent(ingredient);
+    const res = await fetchJson(url, { method: "GET" });
+    if (res.ok && res.data) { await CacheManager.set(cacheKey, res.data); return { ok: true, data: res.data }; }
+    return { ok: false, status: res.status, error: res.error || ("HTTP " + res.status) };
+  },
+  async lookup(id) {
+    const k = await this._key();
+    const url = CONFIG.mealdb.base + "/" + k + "/lookup.php?i=" + encodeURIComponent(id);
+    const res = await fetchJson(url, { method: "GET" });
+    if (res.ok && res.data) return { ok: true, data: res.data };
+    return { ok: false, status: res.status, error: res.error || ("HTTP " + res.status) };
+  },
+  async searchByName(name) {
+    const k = await this._key();
+    const url = CONFIG.mealdb.base + "/" + k + "/search.php?s=" + encodeURIComponent(name);
+    const res = await fetchJson(url, { method: "GET" });
+    if (res.ok && res.data) return { ok: true, data: res.data };
+    return { ok: false, status: res.status, error: res.error || ("HTTP " + res.status) };
+  },
+  async getIngredientList() {
+    const cacheKey = "mealdb:ingredient-list";
+    const cached = await CacheManager.get(cacheKey);
+    if (cached) return cached;
+    const k = await this._key();
+    const url = CONFIG.mealdb.base + "/" + k + "/list.php?i=list";
+    const res = await fetchJson(url, { method: "GET" });
+    if (res.ok && res.data && Array.isArray(res.data.meals)) {
+      const names = res.data.meals.map(m => m.strIngredient);
+      await CacheManager.set(cacheKey, names);
+      return names;
+    }
+    return [];
+  },
+};
+
+/* =========================================================================
+   AI ADAPTER — Gemini (predeterminado) y Claude (opcional, sin fallback
+   automático). Ambos consultados directamente desde el navegador.
+   ========================================================================= */
+const AI = {
+  async _model(provider) {
+    return await Settings.get("model_" + provider, DEFAULT_MODELS[provider]);
+  },
+  async gemini(prompt, jsonMode) {
+    const key = await Credentials.get("gemini");
+    if (!key) return { ok: false, error: "no-key" };
+    const model = await this._model("gemini");
+    const url = CONFIG.gemini.base + "/models/" + encodeURIComponent(model) + ":generateContent?key=" + encodeURIComponent(key);
+    const body = { contents: [{ parts: [{ text: prompt }] }] };
+    if (jsonMode) body.generationConfig = { responseMimeType: "application/json" };
+    const res = await fetchJson(url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    }, 20000);
+    if (!res.ok) return { ok: false, status: res.status, error: res.error || ("HTTP " + res.status) };
+    try {
+      const text = res.data.candidates[0].content.parts.map(p => p.text || "").join("");
+      return { ok: true, text, provider: "gemini" };
+    } catch { return { ok: false, error: "respuesta inesperada de Gemini" }; }
+  },
+  async claude(prompt, jsonMode) {
+    const key = await Credentials.get("claude");
+    if (!key) return { ok: false, error: "no-key" };
+    const model = await this._model("claude");
+    const url = CONFIG.claude.base + "/messages";
+    const finalPrompt = jsonMode ? (prompt + "\n\nResponde ÚNICAMENTE con JSON válido, sin texto adicional ni bloques de código.") : prompt;
+    const res = await fetchJson(url, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": key,
+        "anthropic-version": CONFIG.claude.version,
+        "anthropic-dangerous-direct-browser-access": "true",
+      },
+      body: JSON.stringify({ model, max_tokens: 1024, messages: [{ role: "user", content: finalPrompt }] }),
+    }, 20000);
+    if (!res.ok) return { ok: false, status: res.status, error: res.error || ("HTTP " + res.status) };
+    try {
+      const text = res.data.content.map(c => c.text || "").join("");
+      return { ok: true, text, provider: "claude" };
+    } catch { return { ok: false, error: "respuesta inesperada de Claude" }; }
+  },
+  // Sin fallback automático con coste: si Gemini falla, se informa y se deja
+  // que la vista decida si pide consentimiento para usar Claude.
+  async ask(prompt, opts) {
+    opts = opts || {};
+    const provider = opts.provider || "gemini";
+    const jsonMode = !!opts.json;
+    const result = provider === "claude" ? await this.claude(prompt, jsonMode) : await this.gemini(prompt, jsonMode);
+    return result;
+  },
+  parseJsonLoose(text) {
+    if (!text) return null;
+    let t = text.trim().replace(/^```(json)?/i, "").replace(/```$/, "").trim();
+    try { return JSON.parse(t); } catch {}
+    const m = t.match(/\{[\s\S]*\}/);
+    if (m) { try { return JSON.parse(m[0]); } catch {} }
+    return null;
+  },
+  // Una sola llamada para traducir varios títulos de receta de golpe
+  async translateMealTitles(titles) {
+    if (!titles.length) return {};
+    const geminiKey = await Credentials.get("gemini");
+    const provider = geminiKey ? "gemini" : (await Credentials.get("claude")) ? "claude" : null;
+    if (!provider) return {};
+    const prompt = "Traduce estos títulos de recetas de cocina al español de forma natural y breve. Devuelve " +
+      "SOLO un JSON de la forma {\"título original\": \"traducción\", ...} con una entrada por cada título de " +
+      "esta lista: " + JSON.stringify(titles);
+    const res = await this.ask(prompt, { provider, json: true });
+    if (!res.ok) return {};
+    const parsed = this.parseJsonLoose(res.text);
+    return (parsed && typeof parsed === "object") ? parsed : {};
+  },
+  // Una sola llamada para traducir varios nombres de golpe (en vez de una por candidato)
+  async translateFoodNames(names) {
+    if (!names.length) return {};
+    const geminiKey = await Credentials.get("gemini");
+    const provider = geminiKey ? "gemini" : (await Credentials.get("claude")) ? "claude" : null;
+    if (!provider) return {};
+    const prompt = "Traduce estos nombres de alimentos (en inglés, de USDA) a nombres naturales y breves en " +
+      "español, sin anotaciones técnicas como ', raw' o ', cooked'. Devuelve SOLO un JSON de la forma " +
+      "{\"nombre original\": \"traducción\", ...} con una entrada por cada nombre de esta lista: " + JSON.stringify(names);
+    const res = await this.ask(prompt, { provider, json: true });
+    if (!res.ok) return {};
+    const parsed = this.parseJsonLoose(res.text);
+    return (parsed && typeof parsed === "object") ? parsed : {};
+  },
+};
+
+/* =========================================================================
+   SAFETY ENGINE
+   ========================================================================= */
+const SafetyEngine = {
+  alarmPatterns: [
+    /dolor.*(pecho|torax|tórax)/i, /pecho.*dolor/i,
+    /no puedo respirar/i, /dificultad (para|al) respirar/i, /ahogo/i,
+    /sangre en (las )?heces/i, /v[oó]mito.*sangre/i, /sangro mucho/i, /hemorragia/i,
+    /desmay/i, /p[eé]rdida de conciencia/i, /convulsi[oó]n/i,
+    /pensamientos suicidas/i, /quiero (hacerme daño|morir|suicidarme)/i,
+    /shock anafil[aá]ctico/i, /alergia grave/i, /reacci[oó]n al[eé]rgica grave/i,
+    /fiebre muy alta/i, /42\s?°?c/i,
+    /dolor abdominal (muy fuerte|insoportable|intenso)/i,
+  ],
+  evaluate(text) {
+    const hit = this.alarmPatterns.find(re => re.test(text));
+    if (hit) {
+      return {
+        safe: false,
+        warning: "Lo que describes podría requerir atención médica. Esta aplicación no diagnostica ni trata: si es urgente, contacta con un servicio de emergencias o un profesional sanitario. Puedes continuar para ver información nutricional general, pero no la trates como respuesta médica.",
+      };
+    }
+    return { safe: true, warning: null };
+  },
+};
+
+/* =========================================================================
+   QUERY INTERPRETER — IA primero, heurística local como red de seguridad
+   ========================================================================= */
+const SYMPTOM_MAP = [
+  { id: "digestive_bloating", kws: [/gases?/i, /hinchaz/i, /hinchad/i, /flatulen/i, /digesti[oó]n pesada/i], terms: ["ginger","papaya","yogurt","oats","fennel"], label: "digestión / hinchazón" },
+  { id: "digestive_general", kws: [/digesti[oó]n/i, /est[oó]mago/i], terms: ["rice","banana","yogurt","ginger"], label: "digestión" },
+  { id: "low_energy", kws: [/cansad/i, /fatiga/i, /sin energ[ií]a/i, /agotad/i], terms: ["oats","banana","almonds","spinach"], label: "energía baja" },
+  { id: "hydration", kws: [/deshidrat/i, /mucha sed/i, /calor/i], terms: ["watermelon","cucumber","coconut water"], label: "hidratación" },
+  { id: "cold_flu", kws: [/resfriad/i, /gripe/i, /\btos\b/i, /congesti/i], terms: ["citrus","ginger","honey","garlic"], label: "resfriado / gripe" },
+  { id: "sleep", kws: [/insomnio/i, /no puedo dormir/i, /dormir mal/i], terms: ["kiwi","almonds","chamomile","banana"], label: "sueño" },
+  { id: "headache", kws: [/dolor de cabeza/i, /migra[nñ]a/i, /cefalea/i], terms: ["water","spinach","almonds","banana"], label: "dolor de cabeza" },
+  { id: "muscle_recovery", kws: [/agujetas/i, /dolor muscular/i, /recuperaci[oó]n muscular/i], terms: ["banana","eggs","salmon","cherries"], label: "recuperación muscular" },
+  { id: "immune", kws: [/defensas bajas/i, /sistema inmune/i, /inmunidad/i], terms: ["citrus","yogurt","garlic","spinach"], label: "sistema inmune" },
+];
+
+// Traducción fija de los términos usados por SYMPTOM_MAP (vocabulario cerrado,
+// sin necesidad de IA); para searchTerms generados por IA se pide la traducción
+// en la misma llamada (ver interpret()).
+const EN_ES_TERMS = {
+  ginger: "jengibre", papaya: "papaya", yogurt: "yogur", oats: "avena", fennel: "hinojo",
+  rice: "arroz", banana: "plátano", almonds: "almendras", spinach: "espinacas",
+  watermelon: "sandía", cucumber: "pepino", "coconut water": "agua de coco", citrus: "cítricos",
+  honey: "miel", garlic: "ajo", kiwi: "kiwi", chamomile: "manzanilla", water: "agua",
+  eggs: "huevos", salmon: "salmón", cherries: "cerezas", fruit: "fruta", vegetable: "verdura",
+  "whole grain": "cereal integral",
+};
+
+const QueryInterpreter = {
+  localInterpret(text) {
+    const matched = SYMPTOM_MAP.filter(m => m.kws.some(re => re.test(text)));
+    const chosen = matched.length ? matched : [{ id: "general_healthy", terms: ["fruit","vegetable","whole grain"], label: "alimentación general" }];
+    const terms = [...new Set(chosen.flatMap(m => m.terms))];
+    const termLabels = {};
+    terms.forEach(t => { termLabels[t] = EN_ES_TERMS[t] || t; });
+    return {
+      source: "local",
+      categories: chosen.map(m => m.label),
+      searchTerms: terms,
+      termLabels,
+      language: "es",
+    };
+  },
+  async interpret(text) {
+    const geminiKey = await Credentials.get("gemini");
+    if (geminiKey) {
+      const prompt = "Eres un intérprete de consultas nutricionales. A partir del texto del usuario, " +
+        "devuelve JSON con esta forma exacta: {\"categories\": [\"...\"], \"searchTerms\": [\"...\"], \"searchTermsEs\": [\"...\"]}. " +
+        "\"searchTerms\" debe tener 3 a 6 nombres de alimentos genéricos EN INGLÉS (para buscar en bases de datos " +
+        "nutricionales como USDA), relevantes para la consulta. \"searchTermsEs\" es la traducción al español de " +
+        "cada elemento de \"searchTerms\", en el mismo orden y con el mismo número de elementos. No incluyas " +
+        "explicación, solo el JSON.\n\nConsulta del usuario: " + JSON.stringify(text);
+      const res = await AI.ask(prompt, { provider: "gemini", json: true });
+      if (res.ok) {
+        const parsed = AI.parseJsonLoose(res.text);
+        if (parsed && Array.isArray(parsed.searchTerms) && parsed.searchTerms.length) {
+          const searchTerms = parsed.searchTerms.slice(0, 6);
+          const termLabels = {};
+          searchTerms.forEach((t, i) => {
+            termLabels[t] = (Array.isArray(parsed.searchTermsEs) && parsed.searchTermsEs[i]) || EN_ES_TERMS[t.toLowerCase()] || t;
+          });
+          return { source: "ai", categories: parsed.categories || [], searchTerms, termLabels, language: "es" };
+        }
+      }
+      // IA disponible pero falló o devolvió algo inválido: cae a heurística local
+      return Object.assign(this.localInterpret(text), { aiFailed: true });
+    }
+    return this.localInterpret(text);
+  },
+};
+
+/* =========================================================================
+   CANDIDATE ENGINE
+   ========================================================================= */
+const CandidateEngine = {
+  async build(interpreted) {
+    const seen = new Set();
+    const candidates = [];
+    for (const term of interpreted.searchTerms) {
+      if (candidates.length >= CONFIG.candidateLimit) break;
+      const res = await USDA.search(term, 3);
+      if (!res.ok || !res.data || !Array.isArray(res.data.foods)) continue;
+      for (const food of res.data.foods) {
+        if (candidates.length >= CONFIG.candidateLimit) break;
+        const key = (food.description || "").toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        candidates.push({
+          fdcId: food.fdcId,
+          name: food.description,
+          matchedTerm: (interpreted.termLabels && interpreted.termLabels[term]) || term,
+          dataType: food.dataType,
+        });
+      }
+    }
+    return candidates;
+  },
+};
+
+/* =========================================================================
+   EVIDENCE ENGINE
+   ========================================================================= */
+const CAUTION_RULES = [
+  { re: /milk|dairy|cheese|yogurt|yoghurt|cream/i, text: "Contiene o puede contener lácteos" },
+  { re: /wheat|barley|rye|gluten/i, text: "Contiene o puede contener gluten" },
+  { re: /peanut|almond|walnut|cashew|pistachio|hazelnut|nut/i, text: "Puede contener frutos secos" },
+  { re: /shrimp|shellfish|crab|lobster/i, text: "Puede contener marisco" },
+  { re: /egg/i, text: "Contiene o puede contener huevo" },
+  { re: /soy/i, text: "Contiene o puede contener soja" },
+];
+
+const EvidenceEngine = {
+  extractNutrients(details) {
+    const out = {};
+    const list = details.foodNutrients || [];
+    const pick = (names) => {
+      const n = list.find(x => names.some(nm => (x.nutrientName || (x.nutrient && x.nutrient.name) || "").toLowerCase().includes(nm)));
+      if (!n) return null;
+      return { value: n.value != null ? n.value : (n.amount != null ? n.amount : null), unit: n.unitName || (n.nutrient && n.nutrient.unitName) || "" };
+    };
+    out.calories = pick(["energy"]);
+    out.protein = pick(["protein"]);
+    out.carbs = pick(["carbohydrate, by difference", "carbohydrate"]);
+    out.fat = pick(["total lipid", "fat"]);
+    out.fiber = pick(["fiber"]);
+    out.sugars = pick(["sugars"]);
+    out.sodium = pick(["sodium"]);
+    return out;
+  },
+  cautionsFor(name) {
+    const found = [];
+    for (const rule of CAUTION_RULES) if (rule.re.test(name)) found.push(rule.text);
+    return found;
+  },
+  async enrich(candidate) {
+    const res = await USDA.details(candidate.fdcId);
+    if (!res.ok || !res.data) {
+      return Object.assign({}, candidate, { dataQuality: "baja", nutrients: null, cautions: [], stars: 2 });
+    }
+    const nutrients = this.extractNutrients(res.data);
+    const filled = Object.values(nutrients).filter(Boolean).length;
+    const dataQuality = filled >= 5 ? "alta" : filled >= 2 ? "media" : "baja";
+    const cautions = this.cautionsFor(candidate.name + " " + (res.data.ingredients || ""));
+    const stars = Math.max(1, Math.min(5, 3 + (filled >= 5 ? 1 : 0) + (candidate.dataType === "Foundation" ? 1 : 0) - cautions.length));
+    return Object.assign({}, candidate, { dataQuality, nutrients, cautions, stars, raw: res.data });
+  },
+};
+
+/* =========================================================================
+   RECIPE ENGINE
+   ========================================================================= */
+function pluralizeWord(w) {
+  if (/[^aeiou]o$/i.test(w)) return w + "es";
+  if (/[^aeiou]y$/i.test(w)) return w.slice(0, -1) + "ies";
+  if (/(s|x|z|ch|sh)$/i.test(w)) return w + "es";
+  return w + "s";
+}
+function singularizeWord(w) {
+  if (/ies$/i.test(w)) return w.slice(0, -3) + "y";
+  if (/oes$/i.test(w)) return w.slice(0, -2);
+  if (/s$/i.test(w) && !/ss$/i.test(w)) return w.slice(0, -1);
+  return w;
+}
+function phraseVariants(phrase) {
+  const parts = phrase.split(" ");
+  const last = parts[parts.length - 1];
+  const withLast = w => [...parts.slice(0, -1), w].join(" ");
+  return [phrase, withLast(pluralizeWord(last)), withLast(singularizeWord(last))];
+}
+
+// Diccionario de ingredientes comunes para no depender de la IA en el caso
+// normal; si el término no está aquí, se recurre a una traducción por IA.
+const ES_EN_INGREDIENTS = {
+  jengibre: "ginger", papaya: "papaya", yogur: "yogurt", yogurt: "yogurt", avena: "oats",
+  platano: "banana", "plátano": "banana", banana: "banana", arroz: "rice", pollo: "chicken",
+  kiwi: "kiwi", almendras: "almonds", espinacas: "spinach", citricos: "citrus", "cítricos": "citrus",
+  miel: "honey", ajo: "garlic", manzanilla: "chamomile", sandia: "watermelon", "sandía": "watermelon",
+  pepino: "cucumber", salmon: "salmon", "salmón": "salmon", huevos: "eggs", huevo: "eggs",
+  cerezas: "cherries", agua: "water", fruta: "fruit", verdura: "vegetable", ternera: "beef",
+  cerdo: "pork", pavo: "turkey", pescado: "fish", atun: "tuna", "atún": "tuna", queso: "cheese",
+  leche: "milk", patata: "potato", papa: "potato", tomate: "tomato", cebolla: "onion",
+  zanahoria: "carrot", limon: "lemon", "limón": "lemon", naranja: "orange", manzana: "apple",
+  fresas: "strawberry", fresa: "strawberry", champinones: "mushrooms", "champiñones": "mushrooms",
+  setas: "mushrooms", brocoli: "broccoli", "brócoli": "broccoli", calabacin: "zucchini",
+  "calabacín": "zucchini", berenjena: "eggplant", lentejas: "lentils", garbanzos: "chickpeas",
+  judias: "beans", "judías": "beans", frijoles: "beans", chocolate: "chocolate", canela: "cinnamon",
+  coco: "coconut", aguacate: "avocado", pina: "pineapple", "piña": "pineapple", uvas: "grapes",
+  pasta: "pasta", harina: "flour", mantequilla: "butter",
+};
+async function translateIngredientTerm(term) {
+  const key = term.trim().toLowerCase();
+  if (ES_EN_INGREDIENTS[key]) return ES_EN_INGREDIENTS[key];
+  const geminiKey = await Credentials.get("gemini");
+  const provider = geminiKey ? "gemini" : (await Credentials.get("claude")) ? "claude" : null;
+  if (!provider) return term;
+  const prompt = "Traduce este ingrediente de cocina al inglés, en un máximo de 2 palabras, tal como aparecería " +
+    "en una lista de ingredientes de recetas (ej. 'chicken breast', 'sweet potato'). Responde ÚNICAMENTE con la " +
+    "traducción, sin comillas ni explicación: " + term;
+  const res = await AI.ask(prompt, { provider, json: false });
+  return res.ok ? res.text.trim().replace(/^["']|["']$/g, "") : term;
+}
+
+const RecipeEngine = {
+  // TheMealDB solo acepta el nombre EXACTO de su lista fija de ingredientes
+  // (p.ej. "Ginger", no "Ginger root"; "Sweet Potatoes", no "Sweet potato"),
+  // así que hay que casar el nombre USDA contra esa lista en vez de adivinar.
+  async forIngredient(name) {
+    const cleaned = name.split(",")[0].split("(")[0].trim();
+    const words = cleaned.split(/\s+/).filter(Boolean);
+    const phrases = [cleaned, words.slice(0, 2).join(" "), words[0]].filter((v, i, a) => v && a.indexOf(v) === i);
+    const candidates = new Set();
+    phrases.forEach(p => phraseVariants(p).forEach(v => candidates.add(v)));
+
+    const list = await MealDB.getIngredientList();
+    const listByNorm = new Map(list.map(n => [n.toLowerCase(), n]));
+
+    for (const cand of candidates) {
+      const match = listByNorm.get(cand.toLowerCase());
+      if (match) {
+        const res = await MealDB.filterByIngredient(match);
+        if (res.ok && res.data && Array.isArray(res.data.meals)) return res.data.meals.slice(0, 6);
+        return [];
+      }
+    }
+    return [];
+  },
+};
+
+/* =========================================================================
+   DIAGNÓSTICO
+   ========================================================================= */
+const Diagnostics = {
+  CACHE_KEY: "food-pwa-diag-cache",
+  getCached() {
+    try { return JSON.parse(localStorage.getItem(this.CACHE_KEY) || "null"); }
+    catch { return null; }
+  },
+  saveCache(results) {
+    try { localStorage.setItem(this.CACHE_KEY, JSON.stringify({ results, at: Date.now() })); } catch {}
+  },
+  async run() {
+    const results = [];
+    results.push({ name: "PWA / Service Worker", ok: "serviceWorker" in navigator, detail: "serviceWorker" in navigator ? "Disponible" : "No soportado por este navegador" });
+    const idbOk = await IDB.available();
+    results.push({ name: "IndexedDB", ok: idbOk, detail: idbOk ? "Disponible" : "No se pudo abrir la base local" });
+    results.push({ name: "Conexión a Internet", ok: navigator.onLine, detail: navigator.onLine ? "Conectado" : "Sin conexión" });
+
+    const usdaKey = await Credentials.get("usda");
+    if (usdaKey) {
+      const r = await USDA.search("apple", 1);
+      results.push({ name: "USDA FoodData Central", ok: r.ok, detail: r.ok ? "Conectado" : this._explain("usda", r) });
+    } else {
+      results.push({ name: "USDA FoodData Central", ok: null, detail: "Clave no configurada" });
+    }
+
+    const offR = await OFF.byBarcode("3017620422003");
+    results.push({ name: "Open Food Facts", ok: offR.ok, detail: offR.ok ? "Conectado" : this._explain("off", offR) });
+
+    const mealR = await MealDB.searchByName("chicken");
+    results.push({ name: "TheMealDB", ok: mealR.ok, detail: mealR.ok ? "Conectado" : this._explain("mealdb", mealR) });
+
+    const geminiKey = await Credentials.get("gemini");
+    if (geminiKey) {
+      const r = await AI.gemini("Responde solo con la palabra: ok", false);
+      results.push({ name: "Gemini", ok: r.ok, detail: r.ok ? "Conectado" : this._explain("gemini", r) });
+    } else {
+      results.push({ name: "Gemini", ok: null, detail: "No configurada (opcional pero recomendada)" });
+    }
+
+    const claudeKey = await Credentials.get("claude");
+    if (claudeKey) {
+      const r = await AI.claude("Responde solo con la palabra: ok", false);
+      results.push({ name: "Claude", ok: r.ok, detail: r.ok ? "Conectado" : this._explain("claude", r) });
+    } else {
+      results.push({ name: "Claude", ok: null, detail: "No configurada (opcional)" });
+    }
+    return results;
+  },
+  _explain(provider, r) {
+    if (r.error === "no-key") return "Clave no configurada";
+    if (r.status === 401 || r.status === 403) return "Clave inválida o sin permisos (HTTP " + r.status + ")";
+    if (r.status === 429) return "Límite de peticiones alcanzado (HTTP 429)";
+    if (r.status === 0) return "Error de red o bloqueado por CORS";
+    if (r.status) return "Error HTTP " + r.status;
+    return r.error || "Error desconocido";
+  },
+};
+
+/* =========================================================================
+   ROUTER + ESTADO
+   ========================================================================= */
+const state = {
+  lastInterpreted: null,
+  lastCandidates: [],
+  lastEnriched: {},
+};
+
+const ROUTES = [
+  { id: "inicio", label: "Inicio", icon: "🏠" },
+  { id: "buscar", label: "Buscar", icon: "🔎" },
+  { id: "recetas", label: "Recetas", icon: "🍳" },
+  { id: "favoritos", label: "Favoritos", icon: "❤️" },
+  { id: "config", label: "Configuración", icon: "⚙️" },
+  { id: "diagnostico", label: "Diagnóstico", icon: "🧪" },
+];
+
+function currentRoute() {
+  const hash = location.hash.replace(/^#\/?/, "");
+  return hash || "inicio";
+}
+
+function renderTabs() {
+  const nav = $("#tabs");
+  nav.innerHTML = "";
+  const route = currentRoute().split("/")[0];
+  ROUTES.forEach(r => {
+    const btn = el("button", {
+      class: r.id === route ? "active" : "",
+      onclick: () => { location.hash = "#/" + r.id; },
+    }, [r.icon + " " + r.label]);
+    nav.appendChild(btn);
+  });
+}
+
+async function renderRoute() {
+  renderTabs();
+  const [base, param] = currentRoute().split("/");
+  const view = $("#view");
+  view.innerHTML = "";
+  try {
+    if (base === "inicio") await Views.inicio(view);
+    else if (base === "buscar") await Views.buscar(view);
+    else if (base === "alimento") await Views.alimento(view, param);
+    else if (base === "recetas") await Views.recetas(view);
+    else if (base === "favoritos") await Views.favoritos(view);
+    else if (base === "config") await Views.config(view);
+    else if (base === "diagnostico") await Views.diagnostico(view);
+    else await Views.inicio(view);
+  } catch (e) {
+    console.error(e);
+    view.appendChild(el("div", { class: "card" }, ["Ha ocurrido un error al mostrar esta vista: " + escapeHtml(e.message || String(e))]));
+  }
+}
+
+function renderStatusChip(card) {
+  const cached = Diagnostics.getCached();
+  card.innerHTML = "";
+  const row = el("div", { class: "row", style: "align-items:center; justify-content:space-between" }, []);
+  if (!cached) {
+    row.appendChild(el("span", {}, ["Estado del sistema"]));
+    row.appendChild(el("span", { class: "chip warn" }, ["Sin comprobar"]));
+  } else {
+    const allReady = cached.results.filter(d => d.ok === false).length === 0;
+    const ageMin = Math.round((Date.now() - cached.at) / 60000);
+    const ageLabel = ageMin < 1 ? "hace un momento" : ageMin < 60 ? `hace ${ageMin} min` : `hace ${Math.round(ageMin / 60)} h`;
+    row.appendChild(el("span", {}, [`Estado del sistema (${ageLabel})`]));
+    row.appendChild(el("span", { class: "chip " + (allReady ? "ok" : "warn") }, [allReady ? "Listo" : "Revisar en Diagnóstico"]));
+  }
+  card.appendChild(row);
+  const checkBtn = el("button", { class: "btn secondary small", style: "margin-top:.6rem" }, ["Comprobar ahora"]);
+  checkBtn.addEventListener("click", async () => {
+    checkBtn.disabled = true;
+    checkBtn.textContent = "Comprobando…";
+    const results = await Diagnostics.run().catch(() => []);
+    Diagnostics.saveCache(results);
+    renderStatusChip(card);
+  });
+  card.appendChild(checkBtn);
+}
+
+function renderRecipeCards(container, meals) {
+  const titleEls = [];
+  meals.forEach(m => {
+    const titleStrong = el("strong", {}, [m.strMeal]);
+    titleEls.push(titleStrong);
+    const rc = el("div", { class: "recipe-card" }, [
+      el("img", { src: m.strMealThumb, alt: "" }, []),
+      el("div", { class: "col" }, [titleStrong]),
+      el("button", { class: "btn secondary small" }, ["Ver"]),
+    ]);
+    rc.querySelector("button").addEventListener("click", () => showRecipeModal(m.idMeal));
+    container.appendChild(rc);
+  });
+  AI.translateMealTitles(meals.map(m => m.strMeal)).then(nameMap => {
+    meals.forEach((m, i) => { if (nameMap[m.strMeal]) titleEls[i].textContent = nameMap[m.strMeal]; });
+  }).catch(() => {});
+}
+
+/* =========================================================================
+   VISTAS
+   ========================================================================= */
+const Views = {
+  async inicio(root) {
+    root.appendChild(el("h1", {}, ["🥗 Food & Nutrition AI"]));
+    root.appendChild(el("p", {}, [
+      "Escribe cómo te sientes o qué alimento quieres consultar. Los datos nutricionales vienen siempre de fuentes reales (USDA, Open Food Facts); la IA solo los explica, no los inventa.",
+    ]));
+    const card = el("div", { class: "card" }, []);
+    const ta = el("textarea", { placeholder: "Ej: Últimamente tengo gases e hinchazón después de comer…" }, []);
+    card.appendChild(el("label", {}, ["¿Qué quieres saber?"]));
+    card.appendChild(ta);
+    const btn = el("button", { class: "btn full", style: "margin-top:.6rem" }, ["Analizar"]);
+    btn.addEventListener("click", () => {
+      const text = ta.value.trim();
+      if (!text) { toast("Escribe algo primero"); return; }
+      sessionStorage.setItem("food-pwa-query-draft", text);
+      location.hash = "#/buscar";
+    });
+    card.appendChild(btn);
+    root.appendChild(card);
+
+    root.appendChild(el("div", { class: "info-banner" }, [
+      "Esta información no constituye diagnóstico ni tratamiento médico. Es orientación nutricional general basada en datos públicos.",
+    ]));
+
+    const statusCard = el("div", { class: "card tight" }, []);
+    root.appendChild(statusCard);
+    renderStatusChip(statusCard);
+  },
+
+  async buscar(root) {
+    root.appendChild(el("h1", {}, ["🔎 Buscar / analizar"]));
+    const draft = sessionStorage.getItem("food-pwa-query-draft") || "";
+    const card = el("div", { class: "card" }, []);
+    const ta = el("textarea", { placeholder: "Describe un síntoma, objetivo o alimento…" }, []);
+    ta.value = draft;
+    card.appendChild(ta);
+    const btn = el("button", { class: "btn full", style: "margin-top:.6rem" }, ["Buscar candidatos"]);
+    card.appendChild(btn);
+    root.appendChild(card);
+
+    const resultsWrap = el("div", {}, []);
+    root.appendChild(resultsWrap);
+
+    btn.addEventListener("click", () => runSearch(ta.value.trim()));
+    if (draft) runSearch(draft);
+
+    async function runSearch(text) {
+      if (!text) { toast("Escribe algo primero"); return; }
+      resultsWrap.innerHTML = "";
+      const safety = SafetyEngine.evaluate(text);
+      if (!safety.safe) {
+        resultsWrap.appendChild(el("div", { class: "warning-banner" }, [el("strong", {}, ["Atención: "]), safety.warning]));
+      }
+      resultsWrap.appendChild(el("div", { class: "card" }, [
+        el("div", { class: "skeleton", style: "width:60%; margin-bottom:.5rem" }, []),
+        el("div", { class: "skeleton", style: "width:85%" }, []),
+      ]));
+
+      const usdaKey = await Credentials.get("usda");
+      if (!usdaKey) {
+        resultsWrap.innerHTML = "";
+        resultsWrap.appendChild(el("div", { class: "card" }, [
+          "Necesitas configurar tu clave de USDA FoodData Central para buscar alimentos con datos reales. ",
+          el("a", { href: "#/config" }, ["Ir a Configuración →"]),
+        ]));
+        return;
+      }
+
+      const interpreted = await QueryInterpreter.interpret(text);
+      state.lastInterpreted = interpreted;
+      const candidates = await CandidateEngine.build(interpreted);
+      state.lastCandidates = candidates;
+
+      resultsWrap.innerHTML = "";
+      if (!safety.safe) resultsWrap.appendChild(el("div", { class: "warning-banner" }, [el("strong", {}, ["Atención: "]), safety.warning]));
+
+      resultsWrap.appendChild(el("div", { class: "row", style: "margin-bottom:.6rem" }, [
+        el("span", { class: "chip " + (interpreted.source === "ai" ? "info" : "warn") }, [
+          interpreted.source === "ai" ? "Interpretado por IA" : "Interpretado localmente (heurística)",
+        ]),
+        ...(interpreted.categories || []).map(c => el("span", { class: "chip" }, [c])),
+      ]));
+
+      if (!candidates.length) {
+        resultsWrap.appendChild(el("div", { class: "empty-state" }, [
+          el("span", { class: "big" }, ["🤷"]),
+          "No se encontraron alimentos candidatos para esta consulta.",
+        ]));
+        return;
+      }
+
+      const medals = ["🥇", "🥈", "🥉", "4.", "5."];
+      const nameStrongEls = [];
+      candidates.forEach((c, i) => {
+        const nameStrong = el("strong", {}, [c.name]);
+        nameStrongEls.push(nameStrong);
+        const cardEl = el("div", { class: "candidate-card" }, [
+          el("div", { class: "candidate-rank" }, [medals[i] || (i + 1) + "."]),
+          el("div", { class: "candidate-body" }, [
+            nameStrong,
+            el("span", { class: "muted" }, ["Relacionado con: " + c.matchedTerm]),
+          ]),
+        ]);
+        cardEl.addEventListener("click", () => { location.hash = "#/alimento/" + c.fdcId; });
+        resultsWrap.appendChild(cardEl);
+      });
+      AI.translateFoodNames(candidates.map(c => c.name)).then(nameMap => {
+        candidates.forEach((c, i) => { if (nameMap[c.name]) nameStrongEls[i].textContent = nameMap[c.name]; });
+      }).catch(() => {});
+    }
+  },
+
+  async alimento(root, fdcId) {
+    if (!fdcId) { root.appendChild(el("div", { class: "card" }, ["Alimento no especificado."])); return; }
+    root.appendChild(el("div", { class: "skeleton", style: "width:40%; height:1.6rem; margin-bottom:1rem" }, []));
+
+    let candidate = state.lastCandidates.find(c => String(c.fdcId) === String(fdcId));
+    if (!candidate) candidate = { fdcId, name: "Alimento", matchedTerm: "" };
+    let enriched = state.lastEnriched[fdcId];
+    if (!enriched) {
+      enriched = await EvidenceEngine.enrich(candidate);
+      state.lastEnriched[fdcId] = enriched;
+    }
+
+    root.innerHTML = "";
+    const titleEl = el("h1", {}, ["🥝 " + enriched.name]);
+    root.appendChild(titleEl);
+    root.appendChild(el("div", { class: "row", style: "margin-bottom:.8rem" }, [
+      el("span", { class: "stars" }, ["★".repeat(enriched.stars) + "☆".repeat(5 - enriched.stars)]),
+      el("span", { class: "chip " + (enriched.dataQuality === "alta" ? "ok" : enriched.dataQuality === "media" ? "warn" : "danger") }, ["Calidad de datos: " + enriched.dataQuality]),
+    ]));
+
+    const favBtn = el("button", { class: "btn secondary small" }, ["❤️ Guardar en favoritos"]);
+    favBtn.addEventListener("click", async () => {
+      await Favorites.add("food", enriched.fdcId, enriched.name, enriched);
+      toast("Añadido a favoritos", "success");
+    });
+    root.appendChild(favBtn);
+
+    root.appendChild(el("h2", {}, ["Nutrición"]));
+    if (enriched.nutrients) {
+      const rows = [
+        ["Calorías", enriched.nutrients.calories],
+        ["Proteínas", enriched.nutrients.protein],
+        ["Carbohidratos", enriched.nutrients.carbs],
+        ["Fibra", enriched.nutrients.fiber],
+        ["Azúcares", enriched.nutrients.sugars],
+        ["Grasas", enriched.nutrients.fat],
+        ["Sodio", enriched.nutrients.sodium],
+      ];
+      const table = el("table", { class: "nutrient-table" }, []);
+      table.appendChild(el("tr", {}, [el("th", {}, ["Nutriente"]), el("th", {}, ["Valor"])]));
+      rows.forEach(([label, v]) => {
+        table.appendChild(el("tr", {}, [
+          el("td", {}, [label]),
+          el("td", {}, [v ? fmtNum(v.value) + " " + v.unit : "—"]),
+        ]));
+      });
+      root.appendChild(el("div", { class: "card" }, [table]));
+    } else {
+      root.appendChild(el("div", { class: "card" }, ["No hay datos nutricionales detallados disponibles para este alimento."]));
+    }
+
+    if (enriched.cautions && enriched.cautions.length) {
+      root.appendChild(el("h2", {}, ["Precauciones"]));
+      root.appendChild(el("div", { class: "card" }, [
+        el("ul", { class: "plain cautions" }, enriched.cautions.map(c => el("li", {}, [c]))),
+      ]));
+    }
+
+    root.appendChild(el("h2", {}, ["Explicación"]));
+    const explainCard = el("div", { class: "card" }, ["Generando explicación…"]);
+    root.appendChild(explainCard);
+
+    const dataSummary = JSON.stringify(enriched.nutrients);
+    const prompt = "Estos son datos nutricionales reales de \"" + enriched.name + "\" (USDA): " + dataSummary +
+      ". Devuelve SOLO un JSON con esta forma exacta, sin texto fuera del JSON: " +
+      "{\"nombreEs\": \"...\", \"explicacion\": \"...\"}. " +
+      "\"nombreEs\" es el nombre de este alimento traducido de forma natural al español (breve, sin las anotaciones " +
+      "técnicas de USDA como \", raw\" o \", cooked\"). \"explicacion\" es, en español y en máximo 4 frases, una " +
+      "explicación clara y neutra de qué aporta este alimento, usando frases como 'aparece como candidato " +
+      "potencialmente compatible', sin afirmar que cura o trata nada.";
+
+    if (enriched.aiExplanation) {
+      renderExplanation(enriched.aiExplanation);
+    } else {
+      runExplanation("gemini");
+    }
+
+    async function runExplanation(provider) {
+      const res = await AI.ask(prompt, { provider, json: true });
+      if (res.ok) {
+        const parsed = AI.parseJsonLoose(res.text) || {};
+        const result = { nombreEs: parsed.nombreEs || null, explicacion: parsed.explicacion || res.text, provider };
+        enriched.aiExplanation = result;
+        renderExplanation(result);
+      } else if (res.error === "no-key") {
+        explainCard.innerHTML = "";
+        explainCard.appendChild(el("p", { class: "muted" }, ["Configura Gemini en Configuración para ver aquí una explicación generada por IA."]));
+      } else {
+        explainCard.innerHTML = "";
+        explainCard.appendChild(el("p", { class: "muted" }, ["Gemini no disponible" + (res.error ? " (" + res.error + ")" : "") + "."]));
+        const claudeKey = provider === "gemini" ? await Credentials.get("claude") : null;
+        if (claudeKey) {
+          const retryBtn = el("button", { class: "btn secondary small", style: "margin-top:.4rem" }, ["Generar con Claude en su lugar"]);
+          retryBtn.addEventListener("click", async () => {
+            retryBtn.disabled = true; retryBtn.textContent = "Generando…";
+            await runExplanation("claude");
+          });
+          explainCard.appendChild(retryBtn);
+        }
+      }
+    }
+
+    function renderExplanation(result) {
+      explainCard.innerHTML = "";
+      explainCard.appendChild(el("p", { style: "color:var(--text)" }, [result.explicacion]));
+      if (result.nombreEs) titleEl.textContent = "🥝 " + result.nombreEs;
+    }
+
+    root.appendChild(el("h2", {}, ["Recetas relacionadas"]));
+    const recipesWrap = el("div", { class: "card" }, ["Cargando recetas…"]);
+    root.appendChild(recipesWrap);
+    RecipeEngine.forIngredient(enriched.name).then(meals => {
+      recipesWrap.innerHTML = "";
+      if (!meals.length) { recipesWrap.textContent = "Sin recetas encontradas en TheMealDB para este ingrediente."; return; }
+      renderRecipeCards(recipesWrap, meals);
+    });
+
+    root.appendChild(el("h2", {}, ["Fuentes"]));
+    root.appendChild(el("p", { class: "muted" }, ["USDA FoodData Central" + (enriched.cautions ? " · Open Food Facts (reglas de alérgenos) · TheMealDB · IA: Gemini" : "")]));
+  },
+
+  async recetas(root) {
+    root.appendChild(el("h1", {}, ["🍳 Recetas"]));
+    const card = el("div", { class: "card" }, []);
+    const input = el("input", { type: "text", placeholder: "Ingrediente principal, ej: pollo, kiwi, arroz…" }, []);
+    card.appendChild(el("label", {}, ["Buscar por ingrediente"]));
+    card.appendChild(input);
+    const btn = el("button", { class: "btn full", style: "margin-top:.6rem" }, ["Buscar recetas"]);
+    card.appendChild(btn);
+    root.appendChild(card);
+    const wrap = el("div", {}, []);
+    root.appendChild(wrap);
+
+    btn.addEventListener("click", async () => {
+      const q = input.value.trim();
+      if (!q) return;
+      wrap.innerHTML = "Buscando…";
+      const enTerm = await translateIngredientTerm(q);
+      const meals = await RecipeEngine.forIngredient(enTerm);
+      wrap.innerHTML = "";
+      if (!meals.length) { wrap.appendChild(el("div", { class: "empty-state" }, [el("span", { class: "big" }, ["🍽️"]), "Sin resultados."])); return; }
+      renderRecipeCards(wrap, meals);
+    });
+
+    root.appendChild(el("div", { class: "info-banner" }, [
+      "TheMealDB gratuito filtra por un único ingrediente principal. Combinar varios ingredientes es una función premium de TheMealDB que no usamos en la V1.",
+    ]));
+  },
+
+  async favoritos(root) {
+    root.appendChild(el("h1", {}, ["❤️ Favoritos"]));
+    const favs = await Favorites.list();
+    if (!favs.length) {
+      root.appendChild(el("div", { class: "empty-state" }, [el("span", { class: "big" }, ["🤍"]), "Aún no has guardado nada."]));
+      return;
+    }
+    favs.forEach(f => {
+      const card = el("div", { class: "card tight row", style: "align-items:center; justify-content:space-between" }, [
+        el("span", {}, [(f.type === "food" ? "🥗 " : "🍳 ") + f.name]),
+        el("button", { class: "btn secondary small" }, ["Quitar"]),
+      ]);
+      card.querySelector("button").addEventListener("click", async () => { await Favorites.remove(f.id); renderRoute(); });
+      root.appendChild(card);
+    });
+  },
+
+  async config(root) {
+    root.appendChild(el("h1", {}, ["⚙️ Configuración"]));
+
+    const remember = await Credentials.getRemember();
+    const keys = await Credentials.getAll();
+
+    const providers = [
+      { id: "usda", label: "USDA FoodData Central", help: "Obtén tu clave gratuita en fdc.nal.usda.gov (menú API Key)." },
+      { id: "gemini", label: "Gemini", help: "Clave gratuita en aistudio.google.com. Proveedor de IA predeterminado." },
+      { id: "claude", label: "Claude (opcional)", help: "Clave en console.anthropic.com. Solo se usa si lo confirmas explícitamente." },
+    ];
+
+    const keysCard = el("div", { class: "card" }, [el("h3", { style: "margin-top:0" }, ["Claves de API"])]);
+    providers.forEach(p => {
+      const row = el("div", { style: "margin-bottom:.8rem" }, []);
+      row.appendChild(el("label", {}, [p.label]));
+      const keyRow = el("div", { class: "key-row" }, []);
+      const input = el("input", { type: "password", value: keys[p.id] || "", placeholder: "Pega tu API key aquí" }, []);
+      const saveBtn = el("button", { class: "btn small" }, ["Guardar"]);
+      saveBtn.addEventListener("click", async () => {
+        await Credentials.set(p.id, input.value.trim());
+        toast(p.label + " guardada", "success");
+      });
+      keyRow.appendChild(input);
+      keyRow.appendChild(saveBtn);
+      row.appendChild(keyRow);
+      row.appendChild(el("div", { class: "muted" }, [p.help]));
+      row.appendChild(el("div", { class: "chip " + (keys[p.id] ? "ok" : ""), style: "margin-top:.3rem" }, [keys[p.id] ? "🟢 Conectada" : "⚪ No configurada"]));
+      keysCard.appendChild(row);
+    });
+
+    const rememberRow = el("div", { class: "toggle-row" }, []);
+    const rememberChk = el("input", { type: "checkbox" }, []);
+    rememberChk.checked = remember;
+    rememberChk.addEventListener("change", async () => {
+      await Credentials.setRemember(rememberChk.checked);
+      toast(rememberChk.checked ? "Las claves se recordarán en este dispositivo" : "Las claves solo durarán esta sesión");
+    });
+    rememberRow.appendChild(rememberChk);
+    rememberRow.appendChild(el("span", {}, ["Recordar claves en este dispositivo (si no, se borran al cerrar el navegador)"]));
+    keysCard.appendChild(rememberRow);
+
+    const btnRow = el("div", { class: "row", style: "margin-top:.8rem" }, []);
+    const testBtn = el("button", { class: "btn secondary small" }, ["Probar conexiones →"]);
+    testBtn.addEventListener("click", () => { location.hash = "#/diagnostico"; });
+    const clearBtn = el("button", { class: "btn danger small" }, ["Borrar todas las claves"]);
+    clearBtn.addEventListener("click", async () => {
+      if (!confirm("¿Seguro que quieres borrar todas las claves guardadas?")) return;
+      await Credentials.clearAll();
+      toast("Claves eliminadas", "success");
+      renderRoute();
+    });
+    btnRow.appendChild(testBtn); btnRow.appendChild(clearBtn);
+    keysCard.appendChild(btnRow);
+    root.appendChild(keysCard);
+
+    root.appendChild(el("div", { class: "info-banner" }, [
+      "Una app HTML local no puede mantener una API key en secreto frente al propietario del dispositivo. En este uso personal —clave propia, sin publicar, sin backend— es razonable, pero no la compartas ni la pegues en dispositivos de terceros.",
+    ]));
+
+    // Modelos IA
+    const modelCard = el("div", { class: "card" }, [el("h3", { style: "margin-top:0" }, ["Modelos de IA"])]);
+    for (const p of ["gemini", "claude"]) {
+      const current = await Settings.get("model_" + p, DEFAULT_MODELS[p]);
+      const row = el("div", { style: "margin-bottom:.6rem" }, []);
+      row.appendChild(el("label", {}, ["Modelo " + p]));
+      const input = el("input", { type: "text", value: current }, []);
+      input.addEventListener("change", async () => { await Settings.set("model_" + p, input.value.trim() || DEFAULT_MODELS[p]); });
+      row.appendChild(input);
+      modelCard.appendChild(row);
+    }
+    const allowPaid = await Settings.get("allowPaidModels", false);
+    const paidRow = el("div", { class: "toggle-row" }, []);
+    const paidChk = el("input", { type: "checkbox" }, []);
+    paidChk.checked = allowPaid;
+    paidChk.addEventListener("change", async () => { await Settings.set("allowPaidModels", paidChk.checked); });
+    paidRow.appendChild(paidChk);
+    paidRow.appendChild(el("span", {}, ["Permitir modelos de pago (desactivado por defecto — evita convertir consultas gratuitas en operaciones facturables)"]));
+    modelCard.appendChild(paidRow);
+    root.appendChild(modelCard);
+
+    // Caché
+    const cacheCard = el("div", { class: "card" }, [el("h3", { style: "margin-top:0" }, ["Caché"])]);
+    const currentPolicy = await CacheManager.policy();
+    const rangeWrap = el("div", { class: "range-buttons" }, []);
+    [["off", "Desactivada"], ["7", "7 días"], ["30", "30 días"], ["never", "Sin caducidad"]].forEach(([val, label]) => {
+      const b = el("button", { class: "btn " + (val === currentPolicy ? "" : "secondary") + " small" }, [label]);
+      b.addEventListener("click", async () => { await CacheManager.setPolicy(val); renderRoute(); });
+      rangeWrap.appendChild(b);
+    });
+    cacheCard.appendChild(rangeWrap);
+    const clearCacheBtn = el("button", { class: "btn secondary small", style: "margin-top:.6rem" }, ["Vaciar caché ahora"]);
+    clearCacheBtn.addEventListener("click", async () => { await CacheManager.clearAll(); toast("Caché vaciada", "success"); });
+    cacheCard.appendChild(clearCacheBtn);
+    root.appendChild(cacheCard);
+  },
+
+  async diagnostico(root) {
+    root.appendChild(el("h1", {}, ["🧪 Diagnóstico"]));
+    const card = el("div", { class: "card" }, ["Ejecutando comprobaciones…"]);
+    root.appendChild(card);
+    const results = await Diagnostics.run();
+    Diagnostics.saveCache(results);
+    card.innerHTML = "";
+    results.forEach(r => {
+      const color = r.ok === true ? "ok" : r.ok === false ? "danger" : "warn";
+      const dotColor = r.ok === true ? "var(--ok)" : r.ok === false ? "var(--danger)" : "var(--text-faint)";
+      const row = el("div", { class: "diag-row" }, [
+        el("div", {}, [
+          el("div", { class: "name" }, [r.name]),
+          el("div", { class: "diag-detail" }, [r.detail]),
+        ]),
+        el("span", { class: "badge-dot", style: "background:" + dotColor }, []),
+      ]);
+      card.appendChild(row);
+    });
+    const allOk = results.every(r => r.ok !== false);
+    root.appendChild(el("div", { class: "card tight" }, [
+      el("strong", {}, ["SISTEMA: "]), allOk ? "READY" : "REVISAR ELEMENTOS EN ROJO",
+    ]));
+    const rerun = el("button", { class: "btn secondary small", style: "margin-top:.8rem" }, ["Volver a probar"]);
+    rerun.addEventListener("click", () => renderRoute());
+    root.appendChild(rerun);
+  },
+};
+
+/* =========================================================================
+   MODAL DE RECETA
+   ========================================================================= */
+async function showRecipeModal(id) {
+  const res = await MealDB.lookup(id);
+  if (!res.ok || !res.data || !res.data.meals || !res.data.meals[0]) { toast("No se pudo cargar la receta"); return; }
+  const meal = res.data.meals[0];
+  const overlay = el("div", {
+    style: "position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:60;display:flex;align-items:flex-end;justify-content:center",
+  }, []);
+  const ingredients = [];
+  for (let i = 1; i <= 20; i++) {
+    const ing = meal["strIngredient" + i];
+    const measure = meal["strMeasure" + i];
+    if (ing && ing.trim()) ingredients.push((measure ? measure.trim() + " " : "") + ing.trim());
+  }
+  const titleEl = el("h2", { style: "margin-top:0" }, [meal.strMeal]);
+  const ingredientsList = el("ul", { class: "plain" }, ingredients.map(i => el("li", {}, [i])));
+  const instructionsEl = el("p", {}, [meal.strInstructions]);
+  const translateStatus = el("p", { class: "muted" }, ["Traduciendo receta al español…"]);
+  const panel = el("div", {
+    class: "card", style: "max-width:640px;width:100%;max-height:85vh;overflow:auto;margin:0;border-radius:16px 16px 0 0",
+  }, [
+    titleEl,
+    el("img", { src: meal.strMealThumb, alt: "", style: "width:100%;border-radius:var(--radius);margin-bottom:.6rem" }, []),
+    translateStatus,
+    el("h3", {}, ["Ingredientes"]),
+    ingredientsList,
+    el("h3", {}, ["Instrucciones"]),
+    instructionsEl,
+    el("button", { class: "btn full" }, ["Cerrar"]),
+  ]);
+  panel.querySelector("button:last-child").addEventListener("click", () => overlay.remove());
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
+  overlay.appendChild(panel);
+  document.body.appendChild(overlay);
+
+  const prompt = "Traduce esta receta al español de forma natural y clara, sin inventar ni omitir ingredientes o " +
+    "pasos. Devuelve SOLO un JSON con esta forma exacta: {\"titulo\": \"...\", \"ingredientes\": [array de " +
+    "strings, mismo número y orden que la lista original], \"instrucciones\": \"...\"}. " +
+    "Título original: " + JSON.stringify(meal.strMeal) + ". Ingredientes originales en orden: " +
+    JSON.stringify(ingredients) + ". Instrucciones originales: " + JSON.stringify(meal.strInstructions);
+
+  async function runTranslation(provider) {
+    const res2 = await AI.ask(prompt, { provider, json: true });
+    if (res2.ok) {
+      const parsed = AI.parseJsonLoose(res2.text);
+      if (parsed && parsed.titulo) {
+        titleEl.textContent = parsed.titulo;
+        if (Array.isArray(parsed.ingredientes) && parsed.ingredientes.length === ingredients.length) {
+          [...ingredientsList.children].forEach((li, i) => { li.textContent = parsed.ingredientes[i]; });
+        }
+        if (parsed.instrucciones) instructionsEl.textContent = parsed.instrucciones;
+        translateStatus.remove();
+        return;
+      }
+    }
+    translateStatus.innerHTML = "";
+    translateStatus.appendChild(el("span", {}, ["No se pudo traducir la receta" + (res2.error ? " (" + res2.error + ")" : "") + "."]));
+    const claudeKey = provider === "gemini" ? await Credentials.get("claude") : null;
+    if (claudeKey) {
+      const retryBtn = el("button", { class: "btn secondary small", style: "margin-left:.5rem" }, ["Traducir con Claude"]);
+      retryBtn.addEventListener("click", async () => {
+        retryBtn.disabled = true; retryBtn.textContent = "Traduciendo…";
+        await runTranslation("claude");
+      });
+      translateStatus.appendChild(retryBtn);
+    }
+  }
+
+  const geminiKey = await Credentials.get("gemini");
+  if (geminiKey) runTranslation("gemini");
+  else translateStatus.remove();
+}
+
+/* =========================================================================
+   ESTADO DE RED
+   ========================================================================= */
+function updateNetStatus() {
+  const pill = $("#net-status");
+  const online = navigator.onLine;
+  pill.className = "status-pill " + (online ? "online" : "offline");
+  pill.querySelector("span:last-child").textContent = online ? "ONLINE" : "OFFLINE — datos almacenados";
+}
+window.addEventListener("online", updateNetStatus);
+window.addEventListener("offline", updateNetStatus);
+
+/* =========================================================================
+   ARRANQUE
+   ========================================================================= */
+window.addEventListener("hashchange", renderRoute);
+window.addEventListener("DOMContentLoaded", async () => {
+  updateNetStatus();
+  await renderRoute();
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js").catch(err => console.warn("SW registration failed", err));
+  }
+});
+</script>
+</body>
+</html>
