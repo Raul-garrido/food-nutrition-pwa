@@ -783,6 +783,14 @@ const RecipeEngine = {
    DIAGNÓSTICO
    ========================================================================= */
 const Diagnostics = {
+  CACHE_KEY: "food-pwa-diag-cache",
+  getCached() {
+    try { return JSON.parse(localStorage.getItem(this.CACHE_KEY) || "null"); }
+    catch { return null; }
+  },
+  saveCache(results) {
+    try { localStorage.setItem(this.CACHE_KEY, JSON.stringify({ results, at: Date.now() })); } catch {}
+  },
   async run() {
     const results = [];
     results.push({ name: "PWA / Service Worker", ok: "serviceWorker" in navigator, detail: "serviceWorker" in navigator ? "Disponible" : "No soportado por este navegador" });
@@ -887,6 +895,32 @@ async function renderRoute() {
   }
 }
 
+function renderStatusChip(card) {
+  const cached = Diagnostics.getCached();
+  card.innerHTML = "";
+  const row = el("div", { class: "row", style: "align-items:center; justify-content:space-between" }, []);
+  if (!cached) {
+    row.appendChild(el("span", {}, ["Estado del sistema"]));
+    row.appendChild(el("span", { class: "chip warn" }, ["Sin comprobar"]));
+  } else {
+    const allReady = cached.results.filter(d => d.ok === false).length === 0;
+    const ageMin = Math.round((Date.now() - cached.at) / 60000);
+    const ageLabel = ageMin < 1 ? "hace un momento" : ageMin < 60 ? `hace ${ageMin} min` : `hace ${Math.round(ageMin / 60)} h`;
+    row.appendChild(el("span", {}, [`Estado del sistema (${ageLabel})`]));
+    row.appendChild(el("span", { class: "chip " + (allReady ? "ok" : "warn") }, [allReady ? "Listo" : "Revisar en Diagnóstico"]));
+  }
+  card.appendChild(row);
+  const checkBtn = el("button", { class: "btn secondary small", style: "margin-top:.6rem" }, ["Comprobar ahora"]);
+  checkBtn.addEventListener("click", async () => {
+    checkBtn.disabled = true;
+    checkBtn.textContent = "Comprobando…";
+    const results = await Diagnostics.run().catch(() => []);
+    Diagnostics.saveCache(results);
+    renderStatusChip(card);
+  });
+  card.appendChild(checkBtn);
+}
+
 /* =========================================================================
    VISTAS
    ========================================================================= */
@@ -914,14 +948,9 @@ const Views = {
       "Esta información no constituye diagnóstico ni tratamiento médico. Es orientación nutricional general basada en datos públicos.",
     ]));
 
-    const diag = await Diagnostics.run().catch(() => []);
-    const allReady = diag.filter(d => d.ok === false).length === 0;
-    root.appendChild(el("div", { class: "card tight" }, [
-      el("div", { class: "row", style: "align-items:center; justify-content:space-between" }, [
-        el("span", {}, ["Estado del sistema"]),
-        el("span", { class: "chip " + (allReady ? "ok" : "warn") }, [allReady ? "Listo" : "Revisar en Diagnóstico"]),
-      ]),
-    ]));
+    const statusCard = el("div", { class: "card tight" }, []);
+    root.appendChild(statusCard);
+    renderStatusChip(statusCard);
   },
 
   async buscar(root) {
@@ -1264,6 +1293,7 @@ const Views = {
     const card = el("div", { class: "card" }, ["Ejecutando comprobaciones…"]);
     root.appendChild(card);
     const results = await Diagnostics.run();
+    Diagnostics.saveCache(results);
     card.innerHTML = "";
     results.forEach(r => {
       const color = r.ok === true ? "ok" : r.ok === false ? "danger" : "warn";
