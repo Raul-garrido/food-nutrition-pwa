@@ -1,8 +1,21 @@
 # Instrucciones para Claude Code en este repositorio
 
-## Modo económico por defecto
+Estas instrucciones son específicamente para la **aplicación Claude Code**
+(la app/CLI de Anthropic), no reglas generales del proyecto. Si trabajas
+aquí con otra aplicación o IDE de IA —por ejemplo Kiro, Amazon Q Developer
+u otra herramienta de AWS— **no apliques la sección "Modo económico por
+defecto"**, aunque esa herramienta use por debajo un modelo Claude (como
+Claude Sonnet 5): la restricción de economía es del comportamiento propio
+de la app Claude Code, no del modelo, y no debe extenderse a otras
+aplicaciones solo porque compartan modelo. Esas herramientas deben
+trabajar con su profundidad y comportamiento normales; el resto de
+secciones de este archivo (arquitectura del proyecto, flujo de trabajo
+local/remoto) sí aplican a cualquier IA que trabaje en este repositorio.
 
-Por defecto, trabaja de forma económica en tokens y llamadas a herramientas:
+## Modo económico por defecto (solo aplicación Claude Code)
+
+Por defecto, la aplicación Claude Code trabaja de forma económica en
+tokens y llamadas a herramientas:
 
 - Lee solo los archivos o fragmentos que realmente necesites para la tarea,
   no el repo entero "por si acaso".
